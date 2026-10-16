@@ -162,9 +162,10 @@ def quick_checks() -> dict:
     # storage round-trip
     try:
         bucket = get_admin().storage.from_(settings.clips_bucket)
-        bucket.upload("health/probe.txt", b"ok", {"content-type": "text/plain"})
-        data = bucket.download("health/probe.txt")
-        bucket.remove(["health/probe.txt"])
+        probe = f"health/probe-{int(time.time())}.txt"
+        bucket.upload(probe, b"ok", {"content-type": "text/plain"})
+        data = bucket.download(probe)
+        bucket.remove([probe])
         out["storage"] = "ok" if data else "FAIL: empty read"
     except Exception as exc:
         out["storage"] = f"FAIL: {str(exc)[:120]}"
@@ -307,33 +308,39 @@ def _report(checks: dict, fixes: list[str]) -> None:
     except Exception:
         logger.exception("doctor: could not write status file")
 
-    # 2) dashboard card — one per incident, removed when healthy again
+    # 2) dashboard card — AT MOST ONE ever; removed when healthy again
     try:
-        incident = ",".join(sorted(bad))
-        if bad and incident != _LAST_INCIDENT["hash"]:
-            _LAST_INCIDENT["hash"] = incident
-            admin.table("jobs").insert(
-                {
-                    "user_id": None,
-                    "status": "failed",
-                    "stage": "failed",
-                    "source_filename": f"⚠️ System check: {', '.join(sorted(bad))}"[:80],
-                    "source_size_bytes": 0,
-                    "error": "; ".join(f"{k}: {v}" for k, v in bad.items())[:220],
-                }
-            ).execute()
-        if not bad:
-            _LAST_INCIDENT["hash"] = ""
-            rows = (
-                admin.table("jobs")
-                .select("id")
-                .like("source_filename", "⚠️ System check%")
-                .limit(10)
-                .execute()
-                .data
-                or []
-            )
-            for r in rows:
+        existing = (
+            admin.table("jobs")
+            .select("id")
+            .like("source_filename", "⚠️ System check%")
+            .limit(5)
+            .execute()
+            .data
+            or []
+        )
+        if bad:
+            if not existing:
+                admin.table("jobs").insert(
+                    {
+                        "user_id": None,
+                        "status": "failed",
+                        "stage": "failed",
+                        "source_filename": f"⚠️ System check: {', '.join(sorted(bad))}"[:80],
+                        "source_size_bytes": 0,
+                        "error": "; ".join(f"{k}: {v}" for k, v in bad.items())[:220],
+                    }
+                ).execute()
+            else:
+                # update the ONE card instead of creating more
+                admin.table("jobs").update(
+                    {
+                        "source_filename": f"⚠️ System check: {', '.join(sorted(bad))}"[:80],
+                        "error": "; ".join(f"{k}: {v}" for k, v in bad.items())[:220],
+                    }
+                ).eq("id", existing[0]["id"]).execute()
+        else:
+            for r in existing:
                 admin.table("jobs").delete().eq("id", r["id"]).execute()
     except Exception:
         logger.exception("doctor: incident card")
