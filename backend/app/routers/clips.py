@@ -95,35 +95,11 @@ async def re_edit_clip(
     if not removed:
         raise HTTPException(status_code=400, detail="Select at least one word to remove.")
 
-    _editor_precheck(response.data[0])
     background_tasks.add_task(re_edit_clip_job, clip_id, removed)
     return {
         "ok": True,
         "message": "Re-cutting your clip — press Refresh in about a minute to see it.",
     }
-
-
-def _editor_precheck(clip: dict) -> None:
-    """Fail fast with a HUMAN message if this clip can't be re-rendered."""
-    from app.config import settings
-
-    sp = clip.get("storage_path")
-    job_id = clip.get("job_id")
-    if not sp or not job_id:
-        raise HTTPException(status_code=400, detail="This clip is too old for editing — please re-generate the clips for this video.")
-    bucket = get_admin().storage.from_(settings.clips_bucket)
-    names = [f.get("name") for f in (bucket.list(job_id, {"limit": 100}) or [])]
-    if "source.mp4" not in names:
-        raise HTTPException(status_code=400, detail="The original video was already cleaned up — please upload this video again to edit.")
-    try:
-        wraw = bucket.download(sp.rsplit(".", 1)[0] + ".words.json")
-        import json as _json
-
-        wmeta = _json.loads(wraw)
-    except Exception:
-        wmeta = {}
-    if "kept_segments" not in wmeta or "words" not in wmeta:
-        raise HTTPException(status_code=400, detail="This clip has no transcript data — please re-generate the clips for this video.")
 
 
 class ProEditRequest(BaseModel):
@@ -162,7 +138,6 @@ async def pro_edit_clip(
     if not response.data:
         raise HTTPException(status_code=404, detail="Clip not found.")
 
-    _editor_precheck(response.data[0])
     background_tasks.add_task(pro_edit_clip_job, clip_id, payload.dict())
     return {"ok": True, "message": "Re-rendering in full quality — press Refresh in about a minute."}
 
@@ -203,45 +178,32 @@ def update_clip_meta(clip_id: str, payload: ClipMeta, user=Depends(get_current_u
     return {"ok": True}
 
 
-# ---------------- Browser Studio video proxy (CORS-safe for canvas export) ----------------
+# ---------------- Browser Studio video proxy (CORS-safe fallback) ----------------
 _ALLOWED_PROXY_HOSTS = ("dkavqwoolwomouajmcsy.supabase.co",)
 
 
 @router.get("/api/proxy")
 async def proxy_video(url: str, request: Request):
-    """Stream a storage video with CORS headers so the browser Studio can draw it to canvas."""
+    """Buffered CORS proxy for storage videos (fallback when direct load fails)."""
     from urllib.parse import urlparse
+
+    from fastapi.responses import Response as RawResponse
 
     host = urlparse(url).hostname or ""
     if host not in _ALLOWED_PROXY_HOSTS:
         raise HTTPException(status_code=400, detail="Only ClipViral storage URLs are allowed.")
-
-    headers = {}
-    range_header = request.headers.get("range")
-    if range_header:
-        headers["Range"] = range_header
-
-    client = httpx.AsyncClient(timeout=120)
-    req = client.build_request("GET", url, headers=headers)
-    upstream = await client.send(req, stream=True)
-
-    from fastapi.responses import StreamingResponse
-
-    def iter_bytes():
-        try:
-            for chunk in upstream.iter_bytes(65536):
-                yield chunk
-        finally:
-            pass
-
-    out_headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Accept-Ranges": "bytes",
-        "Content-Type": upstream.headers.get("content-type", "video/mp4"),
-    }
-    if "content-length" in upstream.headers:
-        out_headers["Content-Length"] = upstream.headers["content-length"]
-    if "content-range" in upstream.headers:
-        out_headers["Content-Range"] = upstream.headers["content-range"]
-
-    return StreamingResponse(iter_bytes(), status_code=upstream.status_code, headers=out_headers)
+    try:
+        async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
+            upstream = await client.get(url)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Could not fetch video: {exc}"[:200])
+    return RawResponse(
+        content=upstream.content,
+        status_code=upstream.status_code,
+        media_type=upstream.headers.get("content-type", "video/mp4"),
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "public, max-age=3600",
+        },
+    )

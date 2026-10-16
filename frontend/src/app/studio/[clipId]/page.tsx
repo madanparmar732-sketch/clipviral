@@ -108,6 +108,8 @@ export default function StudioPage() {
   const [words, setWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [videoSrc, setVideoSrc] = useState("");
+  const [videoTriedProxy, setVideoTriedProxy] = useState(false);
 
   // live controls
   const [styleName, setStyleName] = useState("beast");
@@ -163,7 +165,20 @@ export default function StudioPage() {
     return () => { alive = false; };
   }, [clipId, token]);
 
-  const videoSrc = clip ? `${API}/api/proxy?url=${encodeURIComponent((clip as any).video_url || "")}` : "";
+  // Direct Supabase URL first (CORS-safe for canvas); proxy only as fallback.
+  useEffect(() => {
+    if (clip) setVideoSrc(String((clip as any).video_url || "").split("?")[0]);
+  }, [clip]);
+
+  const onVideoError = () => {
+    const u = String((clip as any)?.video_url || "").split("?")[0];
+    if (u && !videoTriedProxy) {
+      setVideoTriedProxy(true);
+      setVideoSrc(`${API}/api/proxy?url=${encodeURIComponent(u)}`);
+    } else {
+      setExportMsg("⚠️ Video could not be loaded — please refresh the page or try again.");
+    }
+  };
 
   const onLoadedMeta = () => {
     const v = videoRef.current;
@@ -450,6 +465,7 @@ export default function StudioPage() {
                 src={videoSrc}
                 crossOrigin="anonymous"
                 playsInline
+                onError={onVideoError}
                 onLoadedMetadata={onLoadedMeta}
                 onPlay={() => setPlaying(true)}
                 onPause={() => setPlaying(false)}

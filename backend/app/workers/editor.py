@@ -33,7 +33,6 @@ def re_edit_clip_job(clip_id: str, removed: list[tuple[float, float]]) -> None:
 
     workdir = os.path.join(settings.media_dir, f"edit-{clip_id}")
     os.makedirs(workdir, exist_ok=True)
-    ejid = _editor_job_start(clip, "Re-cut")
     try:
         # 1) Download the current clip
         local = os.path.join(workdir, "in.mp4")
@@ -102,10 +101,8 @@ def re_edit_clip_job(clip_id: str, removed: list[tuple[float, float]]) -> None:
             }
         ).eq("id", clip_id).execute()
         logger.info("Clip %s re-cut: kept %.1fs of %.1fs", clip_id, sum(b - a for a, b in kept), duration)
-        _editor_job_done(ejid)
-    except Exception as exc:
+    except Exception:
         logger.exception("Re-edit failed for clip %s", clip_id)
-        _editor_job_fail(ejid, f"Re-cut failed: {str(exc)[:160]}")
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
 
@@ -130,7 +127,6 @@ def pro_edit_clip_job(clip_id: str, opts: dict) -> None:
 
     workdir = os.path.join(settings.media_dir, f"pro-{clip_id}")
     os.makedirs(workdir, exist_ok=True)
-    ejid = _editor_job_start(clip, "Editor render")
     try:
         # ---- who is this + what can they use ----
         job_rows = admin.table("jobs").select("user_id").eq("id", job_id).limit(1).execute().data or []
@@ -305,10 +301,8 @@ def pro_edit_clip_job(clip_id: str, opts: dict) -> None:
             "end_seconds": round(new_len, 3),
         }).eq("id", clip_id).execute()
         logger.info("Pro re-render OK for clip %s (style=%s, %.1fs)", clip_id, style, new_len)
-        _editor_job_done(ejid)
     except Exception as exc:
         logger.exception("Pro edit failed for clip %s", clip_id)
-        _editor_job_fail(ejid, f"Editor render failed: {str(exc)[:160]}")
         try:
             admin.table("clips").update({"hook": f"Editor: {str(exc)[:110]}"}).eq("id", clip_id).execute()
         except Exception:
@@ -329,55 +323,3 @@ def _editor_cancelled(clip_id: str) -> bool:
         return bool(jrows and jrows[0].get("status") == "cancelled")
     except Exception:
         return False
-
-
-def _editor_job_start(clip: dict, kind: str) -> str | None:
-    """Create a visible 'Editor render' job so the dashboard shows progress/errors."""
-    try:
-        import uuid as _uuid
-
-        job_id = str(_uuid.uuid4())
-        job_rows = get_admin().table("jobs").select("user_id").eq("id", clip.get("job_id")).limit(1).execute().data or []
-        user_id = job_rows[0].get("user_id") if job_rows else None
-        get_admin().table("jobs").insert(
-            {
-                "id": job_id,
-                "user_id": user_id,
-                "status": "processing",
-                "stage": "rendering",
-                "progress": 35,
-                "source_filename": f"{kind}: {(clip.get('title') or 'clip')[:60]}",
-                "source_size_bytes": 0,
-            }
-        ).execute()
-        return job_id
-    except Exception:
-        logger.exception("could not create editor job row")
-        return None
-
-
-def _editor_job_done(job_id: str | None) -> None:
-    if not job_id:
-        return
-    try:
-        get_admin().table("jobs").delete().eq("id", job_id).execute()
-    except Exception:
-        pass
-
-
-def _editor_job_fail(job_id: str | None, message: str) -> None:
-    if not job_id:
-        return
-    try:
-        from datetime import datetime, timezone
-
-        get_admin().table("jobs").update(
-            {
-                "status": "failed",
-                "stage": "failed",
-                "error": message[:220],
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }
-        ).eq("id", job_id).execute()
-    except Exception:
-        pass
