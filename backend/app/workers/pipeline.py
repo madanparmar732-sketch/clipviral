@@ -11,6 +11,7 @@ Order of magic tricks:
 import logging
 import os
 import shutil
+import threading
 import uuid
 from datetime import datetime, timezone
 
@@ -19,6 +20,10 @@ from app.services import captions, highlights, storage, transcription, video_pro
 from app.supabase_client import get_admin
 
 logger = logging.getLogger(__name__)
+
+# The free machine is tiny (half a CPU!). Jobs run ONE AT A TIME so two
+# renders never fight each other into slow-motion.
+_PIPELINE_LOCK = threading.Lock()
 
 
 def update_job(job_id: str, **fields) -> None:
@@ -30,6 +35,12 @@ def update_job(job_id: str, **fields) -> None:
 
 
 def run_pipeline(job_id: str, source_path: str) -> None:
+    """Entry point used by the upload route. One job at a time (tiny machine!)."""
+    with _PIPELINE_LOCK:
+        _run_pipeline_unserialized(job_id, source_path)
+
+
+def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
     """Runs in a background thread after the upload response is sent."""
     workdir = os.path.dirname(source_path)
     admin = get_admin()

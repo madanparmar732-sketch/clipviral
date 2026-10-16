@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def _run(command: list[str]) -> subprocess.CompletedProcess:
     logger.info("Running: %s", " ".join(command))
-    result = subprocess.run(command, capture_output=True, text=True)
+    result = subprocess.run(command, capture_output=True, text=True, timeout=900)
     if result.returncode != 0:
         raise RuntimeError(f"Command failed: {' '.join(command)}\n{result.stderr[-2000:]}")
     return result
@@ -74,7 +74,7 @@ def render_clip(source_path: str, start: float, end: float, ass_path: str, out_p
 
     video_filters = (
         f"crop={crop_w}:{crop_h}:{x}:{y},"
-        f"scale=1080:1920:flags=lanczos,"
+        f"scale=720:1280:flags=bilinear,"
         f"setsar=1,"
         f"ass='{os.path.abspath(ass_path)}',"
         f"format=yuv420p"
@@ -89,7 +89,8 @@ def render_clip(source_path: str, start: float, end: float, ass_path: str, out_p
             "-t", f"{duration:.2f}",
             "-vf", video_filters,
             "-af", "loudnorm=I=-16:TP=-1.5:LRA=11",
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+            "-threads", "2",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
             "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
             "-movflags", "+faststart",
             out_path,

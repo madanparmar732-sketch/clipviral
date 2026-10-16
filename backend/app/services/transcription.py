@@ -14,7 +14,7 @@ WHISPER_MAX_BYTES = 22 * 1024 * 1024  # keep safely under the API's 25 MB limit
 
 
 def _run(command: list[str]) -> subprocess.CompletedProcess:
-    result = subprocess.run(command, capture_output=True, text=True)
+    result = subprocess.run(command, capture_output=True, text=True, timeout=900)
     if result.returncode != 0:
         raise RuntimeError(f"Command failed: {' '.join(command)}\n{result.stderr[-2000:]}")
     return result
