@@ -211,10 +211,10 @@ def _ask_ai(client, system_prompt: str, user_prompt: str) -> list[dict]:
     return out
 
 
-def detect_highlights(transcript: dict, duration: float) -> list[dict]:
+def detect_highlights(transcript: dict, duration: float, n: int | None = None) -> list[dict]:
     """Ask the AI for the top viral moments. Smart fallback if the AI is unreachable."""
     segments = transcript.get("segments") or []
-    n = settings.top_n_clips
+    n = n or settings.top_n_clips
 
     if not segments or duration <= 0:
         return []

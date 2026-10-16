@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     clip_max_seconds: int = 55  # shorter = much faster renders + better for shorts
     # Keep only the newest N videos per account; older ones are auto-deleted.
     max_videos_per_account: int = 4
+    # Free plan: how many videos per calendar month (Pro = unlimited)
+    free_videos_per_month: int = 3
+    # Comma-separated Pro activation codes (owner hands these out after payment)
+    pro_codes: str = "CLIP-N28E-HCC7,CLIP-R635-UAAW,CLIP-E264-B49K,CLIP-XZYX-F65R,CLIP-ASYK-7DKY,CLIP-DHVV-2XVS,CLIP-SM47-3Z8S,CLIP-T3G3-G4E4,CLIP-CV77-4VYE,CLIP-ZTD4-8K67"
 
     # Extra "recap reel" made with MoviePy (needs more RAM, off by default)
     recap_enabled: bool = False

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Clapperboard, LogOut } from "lucide-react";
@@ -54,6 +55,7 @@ export default function Navbar() {
               <Link href="/dashboard">
                 <Button variant="secondary" size="sm">Dashboard</Button>
               </Link>
+        <Link href="/pricing" className="flex items-center gap-1 rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 text-sm font-semibold text-white"><Sparkles className="h-3.5 w-3.5" /> Pro</Link>
               <Button variant="ghost" size="sm" onClick={signOut}>
                 <LogOut className="h-4 w-4" /> Sign out
               </Button>

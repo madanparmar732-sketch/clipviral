@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.routers import account as account_router
 from app.routers import clips, jobs, uploads
 
 logging.basicConfig(
@@ -39,6 +40,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(account_router.router, tags=["account"])
 app.include_router(uploads.router, tags=["uploads"])
 app.include_router(jobs.router, tags=["jobs"])
 app.include_router(clips.router, tags=["clips"])

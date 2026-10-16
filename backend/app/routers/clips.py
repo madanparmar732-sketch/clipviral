@@ -99,3 +99,32 @@ async def re_edit_clip(
         "ok": True,
         "message": "Re-cutting your clip — press Refresh in about a minute to see it.",
     }
+
+
+class ProEditRequest(BaseModel):
+    style: str | None = None
+    trim_start: float | None = None
+    trim_end: float | None = None
+    enhance: bool | None = None
+    sfx: bool | None = None
+    reframe: str | None = None
+
+
+@router.post("/api/clips/{clip_id}/pro-edit")
+async def pro_edit_clip(
+    clip_id: str,
+    payload: ProEditRequest,
+    background_tasks: BackgroundTasks,
+    user=Depends(get_current_user),
+):
+    """Pro Editor: re-render this clip with new style/trim/polish (full quality)."""
+    from app.workers.editor import pro_edit_clip_job
+
+    response = (
+        get_admin().table("clips").select("*").eq("id", clip_id).eq("user_id", user.id).limit(1).execute()
+    )
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Clip not found.")
+
+    background_tasks.add_task(pro_edit_clip_job, clip_id, payload.dict())
+    return {"ok": True, "message": "Re-rendering in full quality — press Refresh in about a minute."}

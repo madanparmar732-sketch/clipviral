@@ -23,23 +23,60 @@ from app.supabase_client import get_admin
 
 logger = logging.getLogger(__name__)
 
-# The free machine is tiny (half a CPU!). Jobs run ONE AT A TIME so two
-# renders never fight each other into slow-motion.
-_PIPELINE_LOCK = threading.Lock()
+# The free machine is tiny (half a CPU!). Jobs run ONE AT A TIME through a
+# priority queue — Pro jobs (priority 1) jump ahead of free jobs (priority 5).
+import queue as _queue
+
+_TASKS: "_queue.PriorityQueue" = _queue.PriorityQueue()
+_WORKER_STARTED = threading.Event()
+_WORKER_GUARD = threading.Lock()
 
 
-def update_job(job_id: str, **fields) -> None:
-    fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+def _queue_worker() -> None:
+    while True:
+        _prio, _seq, job_id, source_path = _TASKS.get()
+        try:
+            _run_pipeline_unserialized(job_id, source_path)
+        except Exception:
+            logger.exception("Pipeline crashed for job %s", job_id)
+        finally:
+            _TASKS.task_done()
+
+
+def _user_prefs(user_id: str) -> dict:
+    from app.services.captions import FREE_STYLES
+
+    prefs = {"is_pro": False, "caption_style": "beast", "sfx": False, "enhance": False, "reframe": "face"}
     try:
-        get_admin().table("jobs").update(fields).eq("id", job_id).execute()
+        res = get_admin().auth.get_user_by_id(user_id)
+        user = getattr(res, "user", res)
+        meta = (getattr(user, "user_metadata", None) or {}) if user else {}
+        for key in prefs:
+            if key in meta:
+                prefs[key] = meta[key]
+        if not prefs["is_pro"] and prefs["caption_style"] not in FREE_STYLES:
+            prefs["caption_style"] = "beast"
     except Exception:
-        logger.exception("Could not update job %s", job_id)
+        logger.exception("Could not read user prefs (using free defaults)")
+    return prefs
 
 
 def run_pipeline(job_id: str, source_path: str) -> None:
-    """Entry point used by the upload route. One job at a time (tiny machine!)."""
-    with _PIPELINE_LOCK:
-        _run_pipeline_unserialized(job_id, source_path)
+    """Entry point used by the upload route. Pro jobs get priority."""
+    with _WORKER_GUARD:
+        if not _WORKER_STARTED.is_set():
+            threading.Thread(target=_queue_worker, daemon=True).start()
+            _WORKER_STARTED.set()
+
+    priority = 5
+    try:
+        job_res = get_admin().table("jobs").select("user_id").eq("id", job_id).limit(1).execute()
+        rows = job_res.data or []
+        if rows and _user_prefs(rows[0].get("user_id")).get("is_pro"):
+            priority = 1
+    except Exception:
+        pass
+    _TASKS.put((priority, time.monotonic(), job_id, source_path))
 
 
 def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
@@ -51,6 +88,15 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
         job_res = admin.table("jobs").select("*").eq("id", job_id).limit(1).execute()
         job_rows = job_res.data or []
         user_id = job_rows[0].get("user_id") if job_rows else None
+        prefs = _user_prefs(user_id) if user_id else {"is_pro": False, "caption_style": "beast", "sfx": False, "enhance": False, "reframe": "face"}
+        is_pro = bool(prefs.get("is_pro"))
+
+        # Keep a copy of the SOURCE so the Pro editor can re-render in full quality
+        try:
+            if os.path.getsize(source_path) <= 250 * 1024 * 1024:
+                storage.upload_file_to_storage(source_path, f"{job_id}/source.mp4")
+        except Exception:
+            logger.exception("source upload failed (not fatal)")
 
         # ---------- Step 1: measure the video ----------
         update_job(job_id, status="processing", stage="measuring_video", progress=5)
@@ -68,7 +114,7 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
 
         # ---------- Step 3: GPT-4o highlight detection ----------
         update_job(job_id, stage="finding_viral_moments", progress=40)
-        clips = highlights.detect_highlights(transcript, duration)
+        clips = highlights.detect_highlights(transcript, duration, n=5 if is_pro else None)
         if not clips:
             raise RuntimeError("The AI could not find any good moments to clip.")
         logger.info("Job %s: AI picked %d moments", job_id, len(clips))
@@ -109,14 +155,35 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
             # Captions follow the NEW pause-free timeline
             remapped = captions.remap_words(transcript["words"], kept_segments)
             kept_len = sum(b - a for a, b in kept_segments)
-            captions.build_ass_captions(remapped, 0.0, max(1.0, kept_len), ass_path)
+            captions.build_ass_captions(remapped, 0.0, max(1.0, kept_len), ass_path,
+                                        style=str(prefs.get("caption_style") or "beast"),
+                                        watermark=not is_pro)
 
-            chain = video_processor.clip_video_chain(source_path, clip["start"], clip["end"])
+            chain = video_processor.clip_video_chain(
+                source_path, clip["start"], clip["end"],
+                reframe=str(prefs.get("reframe") or "face"),
+                enhance=bool(prefs.get("enhance")) and is_pro,
+                watermark=not is_pro,
+            )
             video_processor.cut_and_concat(
                 source_path, kept_segments, clip_path,
                 video_chain=chain, ass_path=ass_path,
                 total_seconds=kept_len, on_progress=_clip_progress,
             )
+
+            if is_pro and prefs.get("sfx"):
+                try:
+                    sfx = video_processor.make_sfx(workdir)
+                    starts = captions.line_start_times(remapped)[:12]
+                    if starts:
+                        paths, times = [], []
+                        for i, t in enumerate(starts):
+                            paths.append(sfx["whoosh"] if i == 0 else sfx["pop"])
+                            times.append(t)
+                        video_processor.mix_sfx(clip_path, clip_path + ".sfx.mp4", paths, times)
+                        os.replace(clip_path + ".sfx.mp4", clip_path)
+                except Exception:
+                    logger.exception("Auto SFX failed (not fatal)")
 
             # Words JSON for the transcript-based editor
             try:
@@ -124,6 +191,10 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
                     json.dump(
                         {
                             "clip_duration": round(kept_len, 3),
+                            "source_start": clip["start"],
+                            "source_end": clip["end"],
+                            "kept_segments": [[round(a, 3), round(b, 3)] for a, b in kept_segments],
+                            "style": str(prefs.get("caption_style") or "beast"),
                             "words": [
                                 {"start": round(w["start"], 3), "end": round(w["end"], 3), "word": w.get("word", "")}
                                 for w in remapped

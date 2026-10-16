@@ -356,9 +356,75 @@ def cut_and_concat(source_path: str, segments: list[tuple[float, float]], out_pa
     return out_path
 
 
-def clip_video_chain(source_path: str, start: float, end: float) -> str:
-    """The crop/scale filter chain for one clip (face-aware crop, 9:16 output)."""
+WATERMARK_VF = (
+    "drawtext=text='ClipViral':font=Sans:fontsize=26:fontcolor=white@0.65:"
+    "x=w-tw-20:y=h-th-18:box=1:boxcolor=black@0.22:boxborderw=8"
+)
+
+
+def clip_video_chain(source_path: str, start: float, end: float, *, out_w: int = 720, out_h: int = 1280,
+                     reframe: str = "face", enhance: bool = False, watermark: bool = False) -> str:
+    """The crop/scale filter chain for one clip.
+
+    - reframe 'face' = face-aware crop (falls back to center), 'center' = classic center crop.
+    - enhance = upscale to 1080x1920 + sharpen (the 'Upscale' Pro feature).
+    - watermark = burn the ClipViral badge (free plan).
+    """
     info = probe_video(source_path)
-    crop_w, crop_h, _cx, y = _crop_geometry(info["width"], info["height"])
-    x = _smart_crop_x(source_path, start, end, info["width"], info["height"], crop_w)
-    return f"crop={crop_w}:{crop_h}:{x}:{y},scale=720:1280:flags=bilinear,setsar=1"
+    crop_w, crop_h, center_x, y = _crop_geometry(info["width"], info["height"])
+    if reframe == "face":
+        x = _smart_crop_x(source_path, start, end, info["width"], info["height"], crop_w)
+    else:
+        x = center_x
+    if enhance:
+        out_w, out_h = 1080, 1920
+    chain = f"crop={crop_w}:{crop_h}:{x}:{y},scale={out_w}:{out_h}:flags=bilinear,setsar=1"
+    if enhance:
+        chain += ",unsharp=5:5:0.9:5:5:0.0"
+    # NOTE: the free-plan watermark is burned by the ASS caption layer (build_ass_captions),
+    # not drawtext — so it works on every ffmpeg build.
+    return chain
+
+
+def make_sfx(workdir: str) -> dict:
+    """Synthesize tiny royalty-free sound effects (pop + whoosh) with ffmpeg."""
+    sfx = {}
+    pop = os.path.join(workdir, "sfx_pop.wav")
+    whoosh = os.path.join(workdir, "sfx_whoosh.wav")
+    _run([
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+        "-f", "lavfi", "-i", "sine=frequency=880:duration=0.14",
+        "-af", "afade=t=out:st=0.03:d=0.11,volume=0.5", pop,
+    ])
+    _run([
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+        "-f", "lavfi", "-i", "anoisesrc=d=0.5:c=pink",
+        "-af", "highpass=f=800,afade=t=in:st=0:d=0.12,afade=t=out:st=0.28:d=0.22,volume=0.35", whoosh,
+    ])
+    sfx["pop"] = pop
+    sfx["whoosh"] = whoosh
+    return sfx
+
+
+def mix_sfx(video_path: str, out_path: str, sfx_paths: list[str], times: list[float]) -> str:
+    """Mix tiny sound effects into the clip at the given moments (Auto SFX)."""
+    if not sfx_paths or not times:
+        raise RuntimeError("Nothing to mix.")
+    inputs = ["-i", video_path]
+    labels, filters = [], []
+    for i, (sfx, t) in enumerate(zip(sfx_paths, times)):
+        ms = int(max(0, t) * 1000)
+        inputs += ["-i", sfx]
+        filters.append(f"[{i + 1}:a]adelay={ms}|{ms}[s{i}]")
+        labels.append(f"[s{i}]")
+    n = len(times)
+    filters.append(f"{''.join(labels)}amix=inputs={n + 1}:duration=first:normalize=0[mx]")
+    fc = ";".join(filters)
+    _run([
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+        *inputs, "-filter_complex", fc,
+        "-map", "0:v", "-map", "[mx]",
+        "-c:v", "copy", "-c:a", "aac", "-b:a", "128k",
+        out_path,
+    ])
+    return out_path

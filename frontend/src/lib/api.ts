@@ -162,3 +162,78 @@ export async function downloadClip(clip: Clip, token: string) {
   anchor.remove();
   URL.revokeObjectURL(url);
 }
+
+// ==================== PLANS / PRO ====================
+
+export type Account = {
+  email: string;
+  plan: "free" | "pro";
+  videos_used_this_month: number;
+  videos_limit: number | null;
+  caption_style: string;
+  sfx: boolean;
+  enhance: boolean;
+  reframe: string;
+  dub: string;
+  free_styles: string[];
+  all_styles: string[];
+};
+
+export async function getAccount(token: string): Promise<Account> {
+  const res = await fetch(`${API_URL}/api/account`, { headers: authHeaders(token), cache: "no-store" });
+  if (!res.ok) throw new Error(`Could not load account (HTTP ${res.status})`);
+  return res.json();
+}
+
+export async function savePrefs(token: string, prefs: Partial<{
+  caption_style: string; sfx: boolean; enhance: boolean; reframe: string; dub: string;
+}>): Promise<void> {
+  const res = await fetch(`${API_URL}/api/account/prefs`, {
+    method: "POST",
+    headers: { ...authHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify(prefs),
+    cache: "no-store",
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.detail ?? `Could not save (HTTP ${res.status})`);
+}
+
+export async function redeemCode(token: string, code: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_URL}/api/account/redeem`, {
+    method: "POST",
+    headers: { ...authHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+    cache: "no-store",
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.detail ?? `Could not activate (HTTP ${res.status})`);
+  return body;
+}
+
+export async function proEditClip(
+  token: string,
+  clipId: string,
+  opts: { style?: string; trim_start?: number; trim_end?: number; enhance?: boolean; sfx?: boolean; reframe?: string }
+): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`${API_URL}/api/clips/${clipId}/pro-edit`, {
+    method: "POST",
+    headers: { ...authHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify(opts),
+    cache: "no-store",
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.detail ?? `Editor failed (HTTP ${res.status})`);
+  return body;
+}
+
+export async function scriptToVideo(token: string, script: string, style: string): Promise<{ job: Job }> {
+  const res = await fetch(`${API_URL}/api/videos/from-script`, {
+    method: "POST",
+    headers: { ...authHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ script, style }),
+    cache: "no-store",
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.detail ?? `Could not start (HTTP ${res.status})`);
+  return body;
+}

@@ -8,12 +8,14 @@ import LinkImport from "@/components/link-import";
 import UploadDropzone from "@/components/upload-dropzone";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { listJobs, keepApiWarm, type Job } from "@/lib/api";
+import { getAccount, listJobs, keepApiWarm, type Account, type Job } from "@/lib/api";
+import AdSlot from "@/components/ad-slot";
 
 export default function DashboardClient({ userEmail }: { userEmail: string }) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [token, setToken] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [account, setAccount] = useState<Account | null>(null);
   const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -38,6 +40,7 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
       const t = data.session?.access_token ?? "";
       setToken(t);
       refresh(t);
+      if (t) getAccount(t).then(setAccount).catch(() => {});
     });
   }, [refresh]);
 
@@ -71,6 +74,7 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
           </p>
         </div>
         <UploadDropzone compact />
+        <AdSlot compact />
         <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
           <div className="h-px flex-1 bg-white/10" />
           <span>OR</span>
@@ -82,6 +86,11 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
       <section>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold">Your clips</h2>
+          {account && (
+            <span className={"rounded-full px-3 py-1 text-xs font-semibold " + (account.plan === "pro" ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/15 text-amber-300")}>
+              {account.plan === "pro" ? "⭐ PRO" : `FREE — ${account.videos_used_this_month}/${account.videos_limit ?? "∞"} videos`}
+            </span>
+          )}
           <Button variant="outline" size="sm" onClick={() => refresh()} disabled={loading}>
             <RefreshCw className="h-4 w-4" /> Refresh
           </Button>
@@ -107,7 +116,7 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
         ) : (
           <div className="space-y-6">
             {jobs.map((job) => (
-              <JobCard key={job.id} job={job} token={token} />
+              <JobCard key={job.id} job={job} token={token} account={account} />
             ))}
           </div>
         )}

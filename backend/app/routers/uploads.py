@@ -126,3 +126,38 @@ async def upload_from_link(
 
     logger.info("Job %s created from link %s", job_id, url[:120])
     return {"job": {**job_row, "clips": []}}
+
+
+class ScriptRequest(BaseModel):
+    script: str
+    style: str = "beast"
+
+
+@router.post("/api/videos/from-script")
+async def upload_from_script(
+    background_tasks: BackgroundTasks,
+    payload: ScriptRequest,
+    user=Depends(get_current_user),
+):
+    """Script-to-Video (Beta): type a topic or script, get a narrated vertical video."""
+    from app.workers.script_job import run_script_job
+
+    text = (payload.script or "").strip()
+    if len(text) < 3:
+        raise HTTPException(status_code=400, detail="Please type a topic or a script first.")
+    if len(text) > 3000:
+        raise HTTPException(status_code=400, detail="That's a lot! Keep the script under 3000 characters.")
+
+    job_id = str(uuid.uuid4())
+    job_row = {
+        "id": job_id,
+        "user_id": user.id,
+        "status": "queued",
+        "stage": "writing_script",
+        "progress": 3,
+        "source_filename": f"Script: {text[:48]}",
+        "source_size_bytes": 0,
+    }
+    get_admin().table("jobs").insert(job_row).execute()
+    background_tasks.add_task(run_script_job, job_id, user.id, text, payload.style)
+    return {"job": {**job_row, "clips": []}}
