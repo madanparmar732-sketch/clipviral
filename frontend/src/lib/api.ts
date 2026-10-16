@@ -227,7 +227,7 @@ export async function redeemCode(token: string, code: string): Promise<{ message
 export async function proEditClip(
   token: string,
   clipId: string,
-  opts: { style?: string; trim_start?: number; trim_end?: number; enhance?: boolean; sfx?: boolean; reframe?: string }
+  opts: { style?: string; trim_start?: number; trim_end?: number; enhance?: boolean; sfx?: boolean; reframe?: string; removed?: [number, number][] }
 ): Promise<{ ok: boolean; message: string }> {
   const res = await fetchWithRetry(`${API_URL}/api/clips/${clipId}/pro-edit`, {
     method: "POST",

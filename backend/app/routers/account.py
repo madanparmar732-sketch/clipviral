@@ -49,7 +49,7 @@ def get_account(user=Depends(get_current_user)):
         .execute()
     )
     used = res.count if getattr(res, "count", None) is not None else len(res.data or [])
-    limit = None if prefs["is_pro"] else settings.free_videos_per_month
+    limit = None  # everything is FREE now; Pro = no ads + speed boost only
     return {
         "email": getattr(user, "email", ""),
         "plan": "pro" if prefs["is_pro"] else "free",
@@ -60,7 +60,7 @@ def get_account(user=Depends(get_current_user)):
         "enhance": prefs["enhance"],
         "reframe": prefs["reframe"],
         "dub": prefs["dub"],
-        "free_styles": FREE_STYLES,
+        "free_styles": list(STYLE_PRESETS.keys()),
         "all_styles": list(STYLE_PRESETS.keys()),
     }
 
@@ -80,23 +80,14 @@ def save_prefs(payload: PrefsRequest, user=Depends(get_current_user)):
     is_pro = current["is_pro"]
 
     if payload.caption_style is not None:
-        style = payload.caption_style if payload.caption_style in STYLE_PRESETS else "beast"
-        if not is_pro and style not in FREE_STYLES:
-            raise HTTPException(status_code=402, detail="That caption style is Pro-only. Upgrade to unlock all 20!")
-        meta["caption_style"] = style
+        meta["caption_style"] = payload.caption_style if payload.caption_style in STYLE_PRESETS else "beast"
     if payload.sfx is not None:
-        if payload.sfx and not is_pro:
-            raise HTTPException(status_code=402, detail="Auto SFX is a Pro feature.")
         meta["sfx"] = payload.sfx
     if payload.enhance is not None:
-        if payload.enhance and not is_pro:
-            raise HTTPException(status_code=402, detail="Upscale/Enhance is a Pro feature.")
         meta["enhance"] = payload.enhance
     if payload.reframe is not None and payload.reframe in ("face", "center"):
         meta["reframe"] = payload.reframe
     if payload.dub is not None:
-        if payload.dub != "off" and not is_pro:
-            raise HTTPException(status_code=402, detail="Dub captions is a Pro feature.")
         meta["dub"] = payload.dub
 
     _admin_auth().update_user_by_id(user.id, {"user_metadata": meta})
@@ -117,4 +108,4 @@ def redeem_code(payload: RedeemRequest, user=Depends(get_current_user)):
     meta["is_pro"] = True
     meta["plan"] = "pro"
     _admin_auth().update_user_by_id(user.id, {"user_metadata": meta})
-    return {"ok": True, "message": "Welcome to ClipViral Pro! 🎉 All 20 styles, no watermark, priority speed."}
+    return {"ok": True, "message": "Welcome to ClipViral Pro! 🎉 Ads off, watermark off, speed boost ON."}

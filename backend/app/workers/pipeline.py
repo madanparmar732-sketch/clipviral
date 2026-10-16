@@ -55,8 +55,8 @@ def _user_prefs(user_id: str) -> dict:
         for key in prefs:
             if key in meta:
                 prefs[key] = meta[key]
-        if not prefs["is_pro"] and prefs["caption_style"] not in FREE_STYLES:
-            prefs["caption_style"] = "beast"
+        if prefs["caption_style"] not in FREE_STYLES:
+            prefs["caption_style"] = "beast"  # unknown style -> safe default (all styles are free)
     except Exception:
         logger.exception("Could not read user prefs (using free defaults)")
     return prefs
@@ -115,7 +115,7 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
 
         # ---------- Step 3: GPT-4o highlight detection ----------
         update_job(job_id, stage="finding_viral_moments", progress=40)
-        clips = highlights.detect_highlights(transcript, duration, n=5 if is_pro else None)
+        clips = highlights.detect_highlights(transcript, duration)
         if not clips:
             raise RuntimeError("The AI could not find any good moments to clip.")
         logger.info("Job %s: AI picked %d moments", job_id, len(clips))

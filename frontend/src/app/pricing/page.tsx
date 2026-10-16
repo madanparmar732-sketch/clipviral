@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BadgeCheck, Loader2, Sparkles, Zap } from "lucide-react";
+import { BadgeCheck, Loader2, Zap } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,26 +11,24 @@ import { createClient } from "@/lib/supabase/client";
 import { getAccount, redeemCode, type Account } from "@/lib/api";
 
 const FREE_FEATURES = [
-  "3 videos / month",
-  "3 caption styles",
-  "720p output",
-  "ClipViral watermark",
-  "Ads on dashboard",
-  "Transcript editor (basic)",
+  "♾️ Unlimited videos",
+  "🎨 ALL 20 caption styles",
+  "✂️ Full clip editor (transcript + style + trim + polish)",
+  "🔇 Auto SFX + Auto pause-removal",
+  "🎯 AI Reframe (face tracking)",
+  "✨ Upscale / Smart Enhance",
+  "🎬 Script-to-Video",
+  "📱 Long-to-shorts + AI captions",
+  "💧 Small ClipViral watermark",
+  "📺 Ads on",
+  "🚶 Normal speed",
 ];
 
 const PRO_FEATURES = [
-  "♾️ Unlimited videos",
-  "🎨 ALL 20 caption styles",
-  "✨ 1080p + Smart Enhance (Upscale)",
-  "🚫 No watermark",
-  "⚡ Priority speed (jump the queue!)",
-  "🔇 Auto SFX + Auto pause-removal",
-  "✂️ Pro Editor: trim + style + polish",
-  "🎯 AI Reframe (face tracking)",
-  "🎬 Script-to-Video (Beta)",
-  "🗣️ Voice dubbing (Beta soon)",
-  "📺 Zero ads",
+  "🚫 ZERO ads",
+  "🚫 NO watermark — clean videos",
+  "⚡ SPEED BOOST — jump the processing queue",
+  "🎯 That's it. Everything else is FREE forever.",
 ];
 
 export default function PricingPage() {
@@ -79,9 +77,9 @@ export default function PricingPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-12">
       <div className="text-center">
-        <h1 className="text-4xl font-extrabold">Simple, honest pricing 💸</h1>
+        <h1 className="text-4xl font-extrabold">Simple pricing — everything FREE 💸</h1>
         <p className="mt-2 text-muted-foreground">
-          Free forever for light use. Pro when you&apos;re ready to go viral daily.
+          Saare features FREE hain. Pro sirf 2 cheezein deta hai: no ads + speed boost.
         </p>
         {account && (
           <p className="mt-3 text-sm">
@@ -89,11 +87,7 @@ export default function PricingPage() {
             <span className={account.plan === "pro" ? "font-bold text-emerald-400" : "font-bold text-amber-400"}>
               {account.plan.toUpperCase()}
             </span>{" "}
-            plan
-            {account.videos_limit
-              ? ` — ${account.videos_used_this_month}/${account.videos_limit} videos used this month`
-              : " — unlimited videos"}
-            .
+            plan.
           </p>
         )}
       </div>
@@ -101,20 +95,20 @@ export default function PricingPage() {
       <div className="mt-10 grid gap-6 md:grid-cols-2">
         {/* FREE */}
         <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-          <h2 className="text-xl font-bold">Free</h2>
+          <h2 className="text-xl font-bold">Free — sab kuch! 🎉</h2>
           <p className="mt-1 text-3xl font-extrabold">
-            ₹0<span className="text-base font-normal text-muted-foreground">/month</span>
+            ₹0<span className="text-base font-normal text-muted-foreground">/forever</span>
           </p>
           <ul className="mt-5 space-y-2 text-sm">
             {FREE_FEATURES.map((f) => (
               <li key={f} className="flex items-center gap-2">
-                <span className="text-muted-foreground">•</span> {f}
+                <BadgeCheck className="h-4 w-4 shrink-0 text-emerald-400" /> {f}
               </li>
             ))}
           </ul>
           <Link href="/dashboard">
             <Button variant="outline" className="mt-6 w-full">
-              Stay Free
+              Start free
             </Button>
           </Link>
         </div>
@@ -122,18 +116,16 @@ export default function PricingPage() {
         {/* PRO */}
         <div className="relative rounded-2xl border border-violet-400/40 bg-gradient-to-b from-violet-500/15 to-fuchsia-500/5 p-6">
           <div className="absolute -top-3 right-6 rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1 text-xs font-bold">
-            MOST POPULAR 🔥
+            CLEAN + FAST ⚡
           </div>
-          <h2 className="flex items-center gap-2 text-xl font-bold">
-            <Sparkles className="h-5 w-5 text-violet-400" /> Pro
-          </h2>
+          <h2 className="text-xl font-bold">Pro</h2>
           <p className="mt-1 text-3xl font-extrabold">
             ₹299<span className="text-base font-normal text-muted-foreground">/month</span>
           </p>
           <ul className="mt-5 space-y-2 text-sm">
             {PRO_FEATURES.map((f) => (
               <li key={f} className="flex items-center gap-2">
-                <BadgeCheck className="h-4 w-4 shrink-0 text-emerald-400" /> {f}
+                <BadgeCheck className="h-4 w-4 shrink-0 text-violet-400" /> {f}
               </li>
             ))}
           </ul>
@@ -142,10 +134,9 @@ export default function PricingPage() {
             <p className="text-sm font-semibold">Activate Pro (2 steps):</p>
             <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
               <li>
-                Pay <b className="text-white">₹299</b> via UPI to the owner&apos;s UPI ID (ask in chat / on the
-                contact page)
+                Pay <b className="text-white">₹299</b> via UPI (owner ka UPI ID chat me maango)
               </li>
-              <li>Receive your unique Pro code → paste it below ✅</li>
+              <li>Pro code yahan paste karo ✅</li>
             </ol>
             <div className="flex gap-2">
               <Input
@@ -165,11 +156,6 @@ export default function PricingPage() {
           </div>
         </div>
       </div>
-
-      <p className="mt-10 text-center text-xs text-muted-foreground">
-        Payments are handled person-to-person via UPI for now (zero fees 🇮🇳). Online card/UPI checkout
-        (Razorpay) is coming soon.
-      </p>
     </div>
   );
 }

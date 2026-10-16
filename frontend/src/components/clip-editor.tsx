@@ -1,41 +1,66 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, PenLine, Scissors } from "lucide-react";
+import { Loader2, Scissors, Wand2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { reEditClip, type Clip } from "@/lib/api";
+import { proEditClip, type Account, type Clip } from "@/lib/api";
 
 type Word = { start: number; end: number; word: string };
 
 /**
- * Transcript-based editor: tap words to strike them out, then re-cut the clip
- * without those parts (pauses already removed automatically).
+ * ONE merged clip editor (FREE for everyone):
+ *   • transcript words — tap to strike out ✂️
+ *   • 20 caption styles 🎨
+ *   • trim start/end ⏱️
+ *   • polish: Auto SFX / Upscale / Reframe ✨
+ * Press "Re-render" -> full-quality rebuild from the original source.
  */
-export default function ClipEditor({ clip, token }: { clip: Clip; token: string }) {
+export default function ClipEditor({
+  clip,
+  token,
+  account,
+}: {
+  clip: Clip;
+  token: string;
+  account?: Account | null;
+}) {
   const [open, setOpen] = useState(false);
   const [words, setWords] = useState<Word[] | null>(null);
+  const [duration, setDuration] = useState<number>(clip.end_seconds ?? 30);
   const [removed, setRemoved] = useState<Set<number>>(new Set());
+  const [style, setStyle] = useState(account?.caption_style ?? "beast");
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState<number>(clip.end_seconds ?? 30);
+  const [sfx, setSfx] = useState(account?.sfx ?? false);
+  const [enhance, setEnhance] = useState(account?.enhance ?? false);
+  const [reframe, setReframe] = useState<string>(account?.reframe ?? "face");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const allStyles = account?.all_styles ?? ["beast", "minimal", "bold_box"];
 
   async function toggleOpen() {
     if (!open && words === null) {
       setError(null);
       const base = (clip.video_url ?? "").split("?")[0].replace(/\.mp4$/, ".words.json");
-      if (!base) {
-        setError("No transcript for this clip.");
-        return;
+      if (base) {
+        try {
+          const res = await fetch(`${base}?t=${Date.now()}`);
+          if (res.ok) {
+            const data = await res.json();
+            const ws = (data.words ?? []) as Word[];
+            setWords(ws);
+            const d = Number(data.clip_duration) || (clip.end_seconds ?? 30);
+            setDuration(d);
+            setTrimEnd(d);
+          }
+        } catch {
+          /* transcript optional */
+        }
       }
-      try {
-        const res = await fetch(`${base}?t=${Date.now()}`);
-        if (!res.ok) throw new Error("missing");
-        const data = await res.json();
-        setWords((data.words ?? []) as Word[]);
-      } catch {
-        setError("Transcript not found (this clip is from an older version).");
-      }
+      if (words === null && !base) setError("No transcript for this clip yet.");
     }
     setOpen(!open);
   }
@@ -51,31 +76,40 @@ export default function ClipEditor({ clip, token }: { clip: Clip; token: string 
   }
 
   async function apply() {
-    if (!words || removed.size === 0) return;
     setBusy(true);
     setError(null);
     setMsg(null);
     try {
-      // Merge consecutive removed words into time ranges.
+      // merge consecutive struck words into cut ranges
       const ranges: [number, number][] = [];
-      let start: number | null = null;
-      let end = 0;
-      words.forEach((w, i) => {
-        if (removed.has(i)) {
-          if (start === null) start = w.start;
-          end = w.end;
-        } else if (start !== null) {
-          ranges.push([start, end]);
-          start = null;
-        }
-      });
-      if (start !== null) ranges.push([start, end]);
+      if (words) {
+        let start: number | null = null;
+        let end = 0;
+        words.forEach((w, i) => {
+          if (removed.has(i)) {
+            if (start === null) start = w.start;
+            end = w.end;
+          } else if (start !== null) {
+            ranges.push([start, end]);
+            start = null;
+          }
+        });
+        if (start !== null) ranges.push([start, end]);
+      }
 
-      const res = await reEditClip(clip.id, ranges, token);
-      setMsg(res.message ?? "Re-cutting… press Refresh in about a minute.");
+      const res = await proEditClip(token, clip.id, {
+        style,
+        trim_start: trimStart,
+        trim_end: trimEnd,
+        sfx,
+        enhance,
+        reframe,
+        removed: ranges,
+      });
+      setMsg(res.message ?? "Re-rendering — press Refresh in about a minute.");
       setRemoved(new Set());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Re-cut failed.");
+      setError(err instanceof Error ? err.message : "Re-render failed.");
     } finally {
       setBusy(false);
     }
@@ -84,18 +118,18 @@ export default function ClipEditor({ clip, token }: { clip: Clip; token: string 
   return (
     <div className="space-y-2">
       <Button size="sm" variant="outline" className="w-full" onClick={toggleOpen}>
-        <PenLine className="h-4 w-4" /> {open ? "Hide transcript editor" : "Edit by transcript"}
+        <Wand2 className="h-4 w-4" /> {open ? "Hide editor" : "✨ Edit clip"}
       </Button>
 
       {open && (
-        <div className="space-y-2 rounded-lg border border-white/10 bg-white/5 p-3">
-          {error && <p className="text-xs text-red-400">{error}</p>}
-          {words && (
-            <>
-              <p className="text-[11px] text-muted-foreground">
-                Tap any word to strike it out ✂️ — then press Re-cut.
+        <div className="space-y-4 rounded-lg border border-violet-400/25 bg-violet-500/5 p-3">
+          {/* TRANSCRIPT */}
+          {words && words.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-xs font-semibold text-muted-foreground">
+                ✂️ Transcript — tap words to cut them out:
               </p>
-              <div className="flex flex-wrap gap-1">
+              <div className="flex max-h-32 flex-wrap gap-1 overflow-y-auto">
                 {words.map((w, i) => (
                   <button
                     key={i}
@@ -105,33 +139,98 @@ export default function ClipEditor({ clip, token }: { clip: Clip; token: string 
                       "rounded px-1.5 py-0.5 text-xs transition-colors " +
                       (removed.has(i)
                         ? "bg-red-500/20 text-red-300 line-through"
-                        : "bg-white/10 text-white hover:bg-white/20")
+                        : "bg-white/10 hover:bg-white/20")
                     }
                   >
                     {w.word}
                   </button>
                 ))}
               </div>
-              <div className="flex gap-2">
-                <Button size="sm" className="flex-1" onClick={apply} disabled={busy || removed.size === 0}>
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scissors className="h-4 w-4" />}
-                  Re-cut ({removed.size} word{removed.size === 1 ? "" : "s"} out)
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setRemoved(new Set());
-                    setMsg(null);
-                  }}
-                  disabled={busy || removed.size === 0}
-                >
-                  Reset
-                </Button>
-              </div>
-              {msg && <p className="text-xs text-emerald-400">{msg}</p>}
-            </>
+            </div>
           )}
+
+          {/* CAPTION STYLES */}
+          <div>
+            <p className="mb-1.5 text-xs font-semibold text-muted-foreground">🎨 Caption style (20):</p>
+            <div className="grid grid-cols-4 gap-1.5">
+              {allStyles.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setStyle(s)}
+                  className={
+                    "rounded px-1.5 py-1 text-[10px] font-semibold transition-colors " +
+                    (style === s ? "bg-violet-500 text-white" : "bg-white/10 hover:bg-white/20")
+                  }
+                >
+                  {s.replace("_", " ")}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* TRIM */}
+          <div>
+            <p className="mb-1 text-xs font-semibold text-muted-foreground">
+              ⏱️ Trim: {trimStart}s → {trimEnd}s (of {Math.round(duration)}s)
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="range"
+                min={0}
+                max={Math.max(2, trimEnd - 2)}
+                value={trimStart}
+                onChange={(e) => setTrimStart(Number(e.target.value))}
+                className="w-1/2 accent-violet-500"
+              />
+              <input
+                type="range"
+                min={Math.min(duration, trimStart + 2)}
+                max={duration}
+                value={trimEnd}
+                onChange={(e) => setTrimEnd(Number(e.target.value))}
+                className="w-1/2 accent-violet-500"
+              />
+            </div>
+          </div>
+
+          {/* POLISH */}
+          <div className="flex flex-wrap gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => setSfx(!sfx)}
+              className={
+                "rounded-full border px-3 py-1 " +
+                (sfx ? "border-violet-400 bg-violet-500/25 text-white" : "border-white/15 text-muted-foreground")
+              }
+            >
+              Auto SFX 🔊
+            </button>
+            <button
+              type="button"
+              onClick={() => setEnhance(!enhance)}
+              className={
+                "rounded-full border px-3 py-1 " +
+                (enhance ? "border-violet-400 bg-violet-500/25 text-white" : "border-white/15 text-muted-foreground")
+              }
+            >
+              Upscale ✨
+            </button>
+            <button
+              type="button"
+              onClick={() => setReframe(reframe === "face" ? "center" : "face")}
+              className="rounded-full border border-white/15 px-3 py-1 text-muted-foreground"
+            >
+              Reframe: {reframe === "face" ? "🎯 face" : "⬜ center"}
+            </button>
+          </div>
+
+          <Button size="sm" className="w-full" onClick={apply} disabled={busy}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scissors className="h-4 w-4" />}
+            Re-render in full quality
+          </Button>
+          {msg && <p className="text-xs text-emerald-400">{msg}</p>}
+          {error && <p className="text-xs text-red-400">{error}</p>}
         </div>
       )}
     </div>

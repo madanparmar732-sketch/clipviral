@@ -15,7 +15,6 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { downloadClip, type Clip, type Job } from "@/lib/api";
 import ClipEditor from "@/components/clip-editor";
-import ProEditor from "@/components/pro-editor";
 import type { Account } from "@/lib/api";
 import { formatDate, formatDuration } from "@/lib/utils";
 
@@ -179,7 +178,6 @@ export default function JobCard({ job, token, account }: { job: Job; token: stri
                   </Button>
 
                   <ClipEditor clip={clip} token={token} />
-                  <ProEditor clip={clip} token={token} account={account ?? null} />
                 </div>
               </div>
             ))}

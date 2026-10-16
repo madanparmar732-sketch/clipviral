@@ -139,8 +139,7 @@ def pro_edit_clip_job(clip_id: str, opts: dict) -> None:
                 prefs.update({k: meta[k] for k in ("reframe",) if k in meta})
             except Exception:
                 pass
-        if not is_pro:
-            raise RuntimeError("The Pro Editor is a Pro feature — upgrade to use it.")
+        # Editor is FREE for everyone. (Pro only removes the watermark below.)
 
         # ---- source + words metadata ----
         bucket = admin.storage.from_(settings.clips_bucket)
@@ -157,33 +156,61 @@ def pro_edit_clip_job(clip_id: str, opts: dict) -> None:
         with open(source_local, "wb") as f:
             f.write(source_bytes)
 
-        # ---- trim window on the clip timeline ----
+        # ---- trim + struck-out words -> keep windows on the clip timeline ----
         total_len = float(wmeta.get("clip_duration") or 0)
         ts = max(0.0, float(opts.get("trim_start") or 0.0))
         te = min(total_len, float(opts.get("trim_end") or total_len))
-        if te - ts < 2.0:
-            raise RuntimeError("Trim is too short — keep at least 2 seconds.")
+        if te - ts < 1.5:
+            raise RuntimeError("Trim is too short — keep at least 1.5 seconds.")
+
+        removed = []
+        for pair in opts.get("removed") or []:
+            try:
+                a, b = float(pair[0]), float(pair[1])
+            except (TypeError, ValueError, IndexError):
+                continue
+            a, b = max(ts, a), min(te, b)
+            if b - a > 0.05:
+                removed.append((a, b))
+        removed.sort()
+
+        keep_windows = []
+        cur = ts
+        for a, b in removed:
+            if a - cur > 0.1:
+                keep_windows.append((cur, a))
+            cur = max(cur, b)
+        if te - cur > 0.1:
+            keep_windows.append((cur, te))
+        if not keep_windows:
+            raise RuntimeError("You removed everything — keep at least a little video!")
 
         segs = [(float(a), float(b)) for a, b in wmeta["kept_segments"]]
-        mapped: list[tuple[float, float]] = []
-        offset = 0.0
-        for a, b in segs:
-            seg_len = b - a
-            lo, hi = max(offset, ts), min(offset + seg_len, te)
-            if hi - lo > 0.1:
-                mapped.append((a + (lo - offset), a + (hi - offset)))
-            offset += seg_len
-        if not mapped:
-            raise RuntimeError("Nothing left after trimming.")
+        all_words = wmeta.get("words", [])
 
-        words = [
-            {"start": max(0.0, float(w["start"]) - ts),
-             "end": max(0.05, min(te, float(w["end"])) - ts),
-             "word": w.get("word", "")}
-            for w in wmeta.get("words", [])
-            if float(w.get("end", 0)) > ts and float(w.get("start", 0)) < te
-        ]
-        new_len = te - ts
+        mapped: list[tuple[float, float]] = []
+        words: list[dict] = []
+        new_len = 0.0
+        for w_start, w_end in keep_windows:
+            offset = 0.0
+            for a, b in segs:
+                seg_len = b - a
+                lo, hi = max(offset, w_start), min(offset + seg_len, w_end)
+                if hi - lo > 0.1:
+                    mapped.append((a + (lo - offset), a + (hi - offset)))
+                offset += seg_len
+            win_len = w_end - w_start
+            for w in all_words:
+                ws, we = float(w.get("start", 0)), float(w.get("end", 0))
+                if we <= w_start or ws >= w_end:
+                    continue
+                ns = max(0.0, ws - w_start) + new_len
+                ne = min(win_len, we - w_start) + new_len
+                if ne - ns > 0.03:
+                    words.append({"start": round(ns, 3), "end": round(ne, 3), "word": w.get("word", "")})
+            new_len += win_len
+        if not mapped:
+            raise RuntimeError("Nothing left after cutting.")
 
         style = str(opts.get("style") or wmeta.get("style") or "beast")
         if style not in FREE_STYLES and not is_pro:
@@ -196,7 +223,7 @@ def pro_edit_clip_job(clip_id: str, opts: dict) -> None:
             source_local, mapped[0][0], mapped[-1][1],
             reframe=str(opts.get("reframe") or prefs.get("reframe") or "face"),
             enhance=bool(opts.get("enhance")),
-            watermark=False,
+            watermark=not is_pro,
         )
         out = os.path.join(workdir, "out.mp4")
         video_processor.cut_and_concat(
