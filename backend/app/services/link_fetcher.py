@@ -112,6 +112,46 @@ def _err_code(exc: Exception) -> str:
     return "err"
 
 
+# Optional escape hatch: a YouTube cookies file defeats the bot-wall completely.
+# Source order: Supabase storage health/yt_cookies.txt (changeable WITHOUT a
+# redeploy) -> YT_COOKIES_B64 env var. Cached 10 minutes.
+_COOKIE_CACHE: tuple[str | None, float] = (None, 0.0)
+
+
+def _cookiefile() -> str | None:
+    global _COOKIE_CACHE
+    import base64
+    import tempfile
+    import time as _time
+
+    now = _time.time()
+    if _COOKIE_CACHE[0] and now - _COOKIE_CACHE[1] < 600:
+        return _COOKIE_CACHE[0]
+    path = None
+    try:  # Supabase storage first — owner can rotate cookies without redeploying
+        from app.config import settings
+        from app.supabase_client import get_admin
+
+        data = get_admin().storage.from_(settings.clips_bucket).download("health/yt_cookies.txt")
+        if data and b"youtube.com" in data[:8000]:
+            path = os.path.join(tempfile.gettempdir(), "yt_cookies.txt")
+            with open(path, "wb") as fh:
+                fh.write(data)
+    except Exception:
+        path = None
+    if not path:
+        b64 = os.environ.get("YT_COOKIES_B64", "")
+        if b64:
+            try:
+                path = os.path.join(tempfile.gettempdir(), "yt_cookies.txt")
+                with open(path, "wb") as fh:
+                    fh.write(base64.b64decode(b64))
+            except Exception:
+                path = None
+    _COOKIE_CACHE = (path, now)
+    return path
+
+
 def fetch_video(url: str, workdir: str, on_progress=None) -> dict:
     """Download the video into workdir.
 
@@ -158,20 +198,7 @@ def fetch_video(url: str, workdir: str, on_progress=None) -> dict:
             pass
 
     pot_probe = _PotProbe()
-
-    # Optional escape hatch: a YouTube cookies file (base64 in env) defeats the
-    # bot-wall completely for age-restricted/hard-walled videos.
-    cookiefile = None
-    import base64
-    import tempfile
-    b64 = os.environ.get("YT_COOKIES_B64", "")
-    if b64:
-        try:
-            cookiefile = os.path.join(tempfile.gettempdir(), "yt_cookies.txt")
-            with open(cookiefile, "wb") as fh:
-                fh.write(base64.b64decode(b64))
-        except Exception:
-            cookiefile = None
+    cookiefile = _cookiefile()
 
     for name, clients in strategies:
         # clean leftovers from a previous attempt
