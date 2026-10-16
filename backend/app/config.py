@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     whisper_model: str = ""  # empty = automatic per provider
     gpt_model: str = ""      # empty = automatic per provider
     chat_temperature: float = 0.3  # low temperature keeps the AI's JSON answers valid
-    top_n_clips: int = 3
+    top_n_clips: int = 12
     clip_min_seconds: int = 15
     clip_max_seconds: int = 55  # shorter = much faster renders + better for shorts
     # Keep only the newest N videos per account; older ones are auto-deleted.

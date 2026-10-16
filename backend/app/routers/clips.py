@@ -1,6 +1,7 @@
 """Download links for finished clips."""
 
-from fastapi import APIRouter, Depends, HTTPException
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from app.auth import get_current_user
@@ -175,3 +176,47 @@ def update_clip_meta(clip_id: str, payload: ClipMeta, user=Depends(get_current_u
         fields["hashtags"] = [str(t)[:30] for t in fields["hashtags"]][:5]
     get_admin().table("clips").update(fields).eq("id", clip_id).eq("user_id", user.id).execute()
     return {"ok": True}
+
+
+# ---------------- Browser Studio video proxy (CORS-safe for canvas export) ----------------
+_ALLOWED_PROXY_HOSTS = ("dkavqwoolwomouajmcsy.supabase.co",)
+
+
+@router.get("/api/proxy")
+async def proxy_video(url: str, request: Request):
+    """Stream a storage video with CORS headers so the browser Studio can draw it to canvas."""
+    from urllib.parse import urlparse
+
+    host = urlparse(url).hostname or ""
+    if host not in _ALLOWED_PROXY_HOSTS:
+        raise HTTPException(status_code=400, detail="Only ClipViral storage URLs are allowed.")
+
+    headers = {}
+    range_header = request.headers.get("range")
+    if range_header:
+        headers["Range"] = range_header
+
+    client = httpx.AsyncClient(timeout=120)
+    req = client.build_request("GET", url, headers=headers)
+    upstream = await client.send(req, stream=True)
+
+    from fastapi.responses import StreamingResponse
+
+    def iter_bytes():
+        try:
+            for chunk in upstream.iter_bytes(65536):
+                yield chunk
+        finally:
+            pass
+
+    out_headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Accept-Ranges": "bytes",
+        "Content-Type": upstream.headers.get("content-type", "video/mp4"),
+    }
+    if "content-length" in upstream.headers:
+        out_headers["Content-Length"] = upstream.headers["content-length"]
+    if "content-range" in upstream.headers:
+        out_headers["Content-Range"] = upstream.headers["content-range"]
+
+    return StreamingResponse(iter_bytes(), status_code=upstream.status_code, headers=out_headers)

@@ -182,6 +182,11 @@ export default function JobCard({ job, token, account }: { job: Job; token: stri
                       <Wand2 className="h-4 w-4" /> Open Editor
                     </Button>
                   </Link>
+                  <Link href={`/studio/${clip.id}`}>
+                    <Button size="sm" variant="outline" className="w-full border-fuchsia-500/40">
+                      <Sparkles className="h-4 w-4" /> 🎨 Studio (live)
+                    </Button>
+                  </Link>
                 </div>
               </div>
             ))}

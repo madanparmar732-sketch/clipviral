@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Link from "next/link";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://clipviral-kappa.vercel.app";
 
@@ -76,7 +77,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="dark">
       <body className="min-h-screen">
+
         {children}
+        <footer className="border-t border-white/10 bg-[#07070c] px-6 py-8 text-center text-sm text-white/50">
+          <div className="mb-2 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+            <Link href="/about" className="hover:text-white">About</Link>
+            <Link href="/pricing" className="hover:text-white">Pricing</Link>
+            <Link href="/privacy" className="hover:text-white">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-white">Terms of Service</Link>
+            <Link href="/contact" className="hover:text-white">Contact</Link>
+          </div>
+          <p>© {new Date().getFullYear()} ClipViral — free AI video clips for everyone.</p>
+        </footer>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
