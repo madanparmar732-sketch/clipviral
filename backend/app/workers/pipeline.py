@@ -35,9 +35,15 @@ _INFLIGHT_LOCK = threading.Lock()
 _RECOVER_LOCK = threading.Lock()
 
 
+_PROGRESS_TS: dict[str, float] = {}   # job_id -> last time progress/stage actually moved
+
+
 def update_job(job_id: str, **fields) -> None:
     """Update a job row + touch updated_at (so watchers know it's alive)."""
     _mark_inflight(job_id)  # proof of life: keeps the recover stamp fresh
+    if any(k in fields for k in ("progress", "stage", "status")):
+        with _INFLIGHT_LOCK:
+            _PROGRESS_TS[job_id] = time.time()
     try:
         fields["updated_at"] = datetime.now(timezone.utc).isoformat()
         get_admin().table("jobs").update(fields).eq("id", job_id).execute()

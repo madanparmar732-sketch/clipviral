@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 STATUS_KEY = "health/status.json"
 _LAST = {"quick": 0.0, "deep": 0.0}
+_STUCK: dict[str, int] = {}
 _LAST_INCIDENT = {"hash": ""}
 
 
@@ -108,7 +109,52 @@ def auto_fixes() -> list[str]:
     except Exception:
         logger.exception("auto-fix: editor rows")
 
-    # 5) old doctor cards (> 48h) -> delete
+    # 5) FROZEN jobs (no progress for 6+ min) -> auto-retry, then fail cleanly
+    try:
+        from app.workers import pipeline as pl
+
+        rows = (
+            admin.table("jobs")
+            .select("id,stage,source_filename")
+            .in_("status", ["queued", "processing"])
+            .limit(20)
+            .execute()
+            .data
+            or []
+        )
+        for r in rows:
+            jid = r.get("id")
+            name = str(r.get("source_filename") or "")
+            if not jid or name.startswith("⚠️ System check"):
+                continue
+            with pl._INFLIGHT_LOCK:
+                ts = pl._PROGRESS_TS.get(jid)
+            if not ts or time.time() - ts < 360:
+                continue
+            count = _STUCK.get(jid, 0) + 1
+            _STUCK[jid] = count
+            with pl._INFLIGHT_LOCK:
+                pl._PROGRESS_TS.pop(jid, None)
+                pl._INFLIGHT.pop(jid, None)
+            if count <= 1:
+                admin.table("jobs").update(
+                    {"status": "queued", "stage": "queued", "progress": 0, "error": "", "updated_at": _now_iso()}
+                ).eq("id", jid).execute()
+                fixes.append(f"auto-retried a frozen job ({name[:30]})")
+            else:
+                admin.table("jobs").update(
+                    {
+                        "status": "failed",
+                        "stage": "failed",
+                        "error": "Rendering hung twice on this video - the clip may be corrupt. Try a different video or retry later.",
+                        "updated_at": _now_iso(),
+                    }
+                ).eq("id", jid).execute()
+                fixes.append(f"failed a double-frozen job ({name[:30]})")
+    except Exception:
+        logger.exception("auto-fix: frozen jobs")
+
+    # 6) old doctor cards (> 48h) -> delete
     try:
         rows = (
             admin.table("jobs")
