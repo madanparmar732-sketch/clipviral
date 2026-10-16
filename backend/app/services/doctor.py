@@ -198,6 +198,22 @@ def quick_checks() -> dict:
         except Exception as exc:
             out[tool] = f"FAIL: {str(exc)[:120]}"
 
+    # YouTube PO-token provider (bgutil server on :4416) — the bot-wall breaker
+    try:
+        import json as _json
+        import urllib.request as _ur
+
+        req = _ur.Request(
+            "http://127.0.0.1:4416/get_pot",
+            data=b"{}",
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        resp = _json.loads(_ur.urlopen(req, timeout=25).read().decode())
+        out["yt_pot"] = "ok" if resp.get("poToken") else "FAIL: no poToken in response"
+    except Exception as exc:
+        out["yt_pot"] = f"FAIL: {str(exc)[:120]}"
+
     # database
     try:
         get_admin().table("jobs").select("id").limit(1).execute()

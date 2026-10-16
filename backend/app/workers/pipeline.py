@@ -553,14 +553,11 @@ def _fetch_and_run_inner(job_id: str, url: str) -> None:
         logger.info("Job %s: fetched link video %r (%.1f MB)", job_id, result["title"], result["size"] / 1024 / 1024)
     except Exception as exc:
         logger.exception("Link fetch failed for job %s", job_id)
-        text = str(exc)
-        # keep BOTH ends: friendly message at the head, forensic debug at the tail
-        shown = text if len(text) <= 220 else f"{text[:110]} … {text[-105:]}"
         update_job(
             job_id,
             status="failed",
             stage="failed",
-            error=f"Could not fetch that video link: {shown}",
+            error=f"Could not fetch that video link: {str(exc)}",  # FULL text — debug digest lives at the end
         )
         shutil.rmtree(workdir, ignore_errors=True)
         return

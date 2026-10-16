@@ -137,6 +137,28 @@ def fetch_video(url: str, workdir: str, on_progress=None) -> dict:
     info = None
     errs: list[str] = []  # forensic digest -> lands in the job error so we can see remote failures
 
+    class _PotProbe:
+        """Counts PO-token activity inside yt-dlp so the job error proves whether
+        the bgutil provider was actually used during the attempt."""
+
+        def __init__(self) -> None:
+            self.pot = 0
+
+        def debug(self, msg) -> None:
+            low = str(msg).lower()
+            if "pot" in low and ("generat" in low or "request" in low):
+                self.pot += 1
+
+        info = debug
+
+        def warning(self, msg) -> None:
+            pass
+
+        def error(self, msg) -> None:
+            pass
+
+    pot_probe = _PotProbe()
+
     # Optional escape hatch: a YouTube cookies file (base64 in env) defeats the
     # bot-wall completely for age-restricted/hard-walled videos.
     cookiefile = None
@@ -174,6 +196,7 @@ def fetch_video(url: str, workdir: str, on_progress=None) -> dict:
                 "quiet": True,
                 "no_warnings": True,
                 "progress_hooks": [hook],
+                "logger": pot_probe,
             }
             if clients:
                 opts["extractor_args"] = {"youtube": {"player_client": clients}}
@@ -197,7 +220,9 @@ def fetch_video(url: str, workdir: str, on_progress=None) -> dict:
     if info is None:
         ver = getattr(getattr(yt_dlp, "version", None), "__version__", "?")
         debug = "; ".join(errs)[:220]
-        raise RuntimeError(f"{_human_error(last_err or Exception('unknown error'))} [debug ytdlp={ver} | {debug}]")
+        raise RuntimeError(
+            f"{_human_error(last_err or Exception('unknown error'))} [debug ytdlp={ver} pot={pot_probe.pot} | {debug}]"
+        )
 
     if info.get("_type") == "playlist":
         entries = info.get("entries") or []
