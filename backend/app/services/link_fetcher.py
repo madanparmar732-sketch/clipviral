@@ -110,6 +110,21 @@ def fetch_video(url: str, workdir: str, on_progress=None) -> dict:
 
     last_err: Exception | None = None
     info = None
+    errs: list[str] = []  # forensic digest -> lands in the job error so we can see remote failures
+
+    # Optional escape hatch: a YouTube cookies file (base64 in env) defeats the
+    # bot-wall completely for age-restricted/hard-walled videos.
+    cookiefile = None
+    import base64
+    import tempfile
+    b64 = os.environ.get("YT_COOKIES_B64", "")
+    if b64:
+        try:
+            cookiefile = os.path.join(tempfile.gettempdir(), "yt_cookies.txt")
+            with open(cookiefile, "wb") as fh:
+                fh.write(base64.b64decode(b64))
+        except Exception:
+            cookiefile = None
 
     for name, clients in strategies:
         # clean leftovers from a previous attempt
@@ -137,6 +152,8 @@ def fetch_video(url: str, workdir: str, on_progress=None) -> dict:
             }
             if clients:
                 opts["extractor_args"] = {"youtube": {"player_client": clients}}
+            if cookiefile:
+                opts["cookiefile"] = cookiefile
 
             try:
                 with yt_dlp.YoutubeDL(opts) as ydl:
@@ -145,12 +162,15 @@ def fetch_video(url: str, workdir: str, on_progress=None) -> dict:
                 break
             except Exception as exc:
                 last_err = exc
+                errs.append(f"{name}:{str(exc)[:70]}")
                 logger.warning("Link fetch disguise %r fmt %r failed: %s", name, fmt, str(exc)[:160])
         if info is not None:
             break
 
     if info is None:
-        raise RuntimeError(_human_error(last_err or Exception("unknown error")))
+        ver = getattr(getattr(yt_dlp, "version", None), "__version__", "?")
+        debug = "; ".join(errs)[:220]
+        raise RuntimeError(f"{_human_error(last_err or Exception('unknown error'))} [debug ytdlp={ver} | {debug}]")
 
     if info.get("_type") == "playlist":
         entries = info.get("entries") or []
