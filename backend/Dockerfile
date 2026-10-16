@@ -14,10 +14,13 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app ./app
+# Copy EVERYTHING (app/ + docker-start.sh) into the box
+COPY . .
 
 # Render gives us a PORT number; default to 10000 for local runs
 ENV PYTHONUNBUFFERED=1
 EXPOSE 10000
 
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-10000}
+# docker-start.sh binds to whatever door Render tells us ($PORT) — never hardcode it
+RUN chmod +x docker-start.sh
+CMD ["./docker-start.sh"]
