@@ -87,6 +87,26 @@ def _human_error(err: Exception) -> str:
     return f"Could not fetch that video: {last[:150]}"
 
 
+def _err_code(exc: Exception) -> str:
+    """One tiny word per failure kind, so ALL disguises fit in one job error."""
+    low = str(exc).lower()
+    if "not a bot" in low or "sign in to confirm" in low:
+        return "botwall"
+    if "format is not available" in low:
+        return "nofmt"
+    if "reloaded" in low:
+        return "reload"
+    if "unavailable" in low:
+        return "unavail"
+    if "private" in low:
+        return "private"
+    if "age" in low and "restrict" in low:
+        return "age"
+    if "timed out" in low or "timeout" in low:
+        return "timeout"
+    return "err"
+
+
 def fetch_video(url: str, workdir: str, on_progress=None) -> dict:
     """Download the video into workdir.
 
@@ -162,7 +182,9 @@ def fetch_video(url: str, workdir: str, on_progress=None) -> dict:
                 break
             except Exception as exc:
                 last_err = exc
-                errs.append(f"{name}:{str(exc)[:70]}")
+                digest = f"{name}:{_err_code(exc)}"
+                if digest not in errs:  # both fmt passes usually say the same thing
+                    errs.append(digest)
                 logger.warning("Link fetch disguise %r fmt %r failed: %s", name, fmt, str(exc)[:160])
         if info is not None:
             break
