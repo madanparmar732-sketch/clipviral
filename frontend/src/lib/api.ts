@@ -227,7 +227,7 @@ export async function redeemCode(token: string, code: string): Promise<{ message
 export async function proEditClip(
   token: string,
   clipId: string,
-  opts: { style?: string; trim_start?: number; trim_end?: number; enhance?: boolean; sfx?: boolean; reframe?: string; removed?: [number, number][] }
+  opts: { style?: string; trim_start?: number; trim_end?: number; enhance?: boolean; sfx?: boolean; reframe?: string; removed?: [number, number][]; aspect?: string; layout?: string; caption_pos?: string; size_scale?: number; caps?: boolean; brightness?: number; contrast?: number; saturation?: number; volume?: number; words_override?: { start: number; end: number; word: string }[] }
 ): Promise<{ ok: boolean; message: string }> {
   const res = await fetchWithRetry(`${API_URL}/api/clips/${clipId}/pro-edit`, {
     method: "POST",
@@ -250,4 +250,29 @@ export async function scriptToVideo(token: string, script: string, style: string
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.detail ?? `Could not start (HTTP ${res.status})`);
   return body;
+}
+
+export async function getClip(token: string, clipId: string): Promise<Clip> {
+  const res = await fetchWithRetry(`${API_URL}/api/clips/${clipId}`, {
+    headers: authHeaders(token),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Could not load clip (HTTP ${res.status})`);
+  const body = await res.json();
+  return body.clip;
+}
+
+export async function updateClipMeta(
+  token: string,
+  clipId: string,
+  meta: { title?: string; hook?: string; hashtags?: string[] }
+): Promise<void> {
+  const res = await fetchWithRetry(`${API_URL}/api/clips/${clipId}`, {
+    method: "PATCH",
+    headers: { ...authHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify(meta),
+    cache: "no-store",
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.detail ?? `Could not save (HTTP ${res.status})`);
 }

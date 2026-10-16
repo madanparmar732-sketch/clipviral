@@ -187,6 +187,12 @@ def pro_edit_clip_job(clip_id: str, opts: dict) -> None:
 
         segs = [(float(a), float(b)) for a, b in wmeta["kept_segments"]]
         all_words = wmeta.get("words", [])
+        override = opts.get("words_override") or []
+        if isinstance(override, list) and override:
+            all_words = [
+                {"start": float(w.get("start", 0)), "end": float(w.get("end", 0)), "word": str(w.get("word", ""))}
+                for w in override if isinstance(w, dict)
+            ]
 
         mapped: list[tuple[float, float]] = []
         words: list[dict] = []
@@ -217,18 +223,37 @@ def pro_edit_clip_job(clip_id: str, opts: dict) -> None:
             style = "beast"
 
         ass_path = os.path.join(workdir, "edit.ass")
-        build_ass_captions(words, 0.0, max(1.0, new_len), ass_path, style=style)
+        build_ass_captions(
+            words, 0.0, max(1.0, new_len), ass_path, style=style,
+            watermark=not is_pro,
+            pos=str(opts.get("caption_pos") or "bottom"),
+            size_scale=max(0.5, min(1.6, float(opts.get("size_scale") or 1.0))),
+            caps=bool(opts.get("caps", True)),
+        )
 
+        aspect = str(opts.get("aspect") or "9:16")
+        layout = str(opts.get("layout") or "full")
         chain = video_processor.clip_video_chain(
             source_local, mapped[0][0], mapped[-1][1],
             reframe=str(opts.get("reframe") or prefs.get("reframe") or "face"),
             enhance=bool(opts.get("enhance")),
             watermark=not is_pro,
+            aspect=aspect, layout=layout,
+            brightness=float(opts.get("brightness") or 0.0),
+            contrast=float(opts.get("contrast") or 1.0),
+            saturation=float(opts.get("saturation") or 1.0),
         )
+        size_map = video_processor.ASPECT_SIZES_HD if opts.get("enhance") else video_processor.ASPECT_SIZES
+        ow, oh = size_map.get(aspect, size_map["9:16"])
+        post_vf = video_processor.pad_post_filter(ow, oh) if layout == "pad" else ""
+        audio_chain = ""
+        if opts.get("volume") is not None:
+            audio_chain = f"volume={max(0.1, min(3.0, float(opts.get('volume')))):.2f}"
         out = os.path.join(workdir, "out.mp4")
         video_processor.cut_and_concat(
             source_local, mapped, out,
             video_chain=chain, ass_path=ass_path, total_seconds=new_len,
+            post_vf=post_vf, audio_chain=audio_chain,
         )
 
         if opts.get("sfx"):

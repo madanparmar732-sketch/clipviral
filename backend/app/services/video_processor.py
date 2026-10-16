@@ -304,7 +304,8 @@ def build_kept_segments(start: float, end: float, silences: list[tuple[float, fl
 
 def cut_and_concat(source_path: str, segments: list[tuple[float, float]], out_path: str,
                    video_chain: str = "", ass_path: str | None = None,
-                   total_seconds: float | None = None, on_progress=None) -> str:
+                   total_seconds: float | None = None, on_progress=None,
+                   post_vf: str = "", audio_chain: str = "") -> str:
     """Cut the listed time ranges out of the source and glue them into ONE video.
 
     - video_chain: extra per-segment video filters (crop/scale) for fresh renders.
@@ -323,19 +324,25 @@ def cut_and_concat(source_path: str, segments: list[tuple[float, float]], out_pa
         if video_chain:
             vf += "," + video_chain
         parts_v.append(f"[0:v]{vf}[v{i}]")
-        parts_a.append(f"[0:a]atrim=start={a:.3f}:end={b:.3f},asetpts=PTS-STARTPTS[a{i}]")
+        af = f"atrim=start={a:.3f}:end={b:.3f},asetpts=PTS-STARTPTS"
+        if audio_chain:
+            af += "," + audio_chain
+        parts_a.append(f"[0:a]{af}[a{i}]")
         labels.append(f"[v{i}][a{i}]")
 
     concat_in = "".join(labels)
     fc = ";".join(parts_v + parts_a) + f";{concat_in}concat=n={len(segments)}:v=1:a=1[vc][ac]"
 
+    vsrc = "[vc]"
+    if post_vf:
+        fc += f";[vc]{post_vf}[vz]"
+        vsrc = "[vz]"
     if ass_path:
         ass_abs = os.path.abspath(ass_path).replace("\\", "/")
-        fc += f";[vc]ass='{ass_abs}',format=yuv420p[vo]"
-        vout = "[vo]"
+        fc += f";{vsrc}ass='{ass_abs}',format=yuv420p[vo]"
     else:
-        fc += ";[vc]format=yuv420p[vo]"
-        vout = "[vo]"
+        fc += f";{vsrc}format=yuv420p[vo]"
+    vout = "[vo]"
 
     command = [
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
@@ -362,8 +369,30 @@ WATERMARK_VF = (
 )
 
 
+ASPECT_SIZES = {"9:16": (720, 1280), "1:1": (720, 720), "16:9": (1280, 720), "4:5": (720, 900)}
+ASPECT_SIZES_HD = {"9:16": (1080, 1920), "1:1": (1080, 1080), "16:9": (1920, 1080), "4:5": (1080, 1350)}
+
+
+def eq_filter(brightness: float = 0.0, contrast: float = 1.0, saturation: float = 1.0) -> str:
+    if abs(brightness) < 0.005 and abs(contrast - 1.0) < 0.005 and abs(saturation - 1.0) < 0.005:
+        return ""
+    return f"eq=brightness={brightness:.3f}:contrast={contrast:.3f}:saturation={saturation:.3f}"
+
+
+def pad_post_filter(out_w: int, out_h: int) -> str:
+    """Blur-pad layout: video centered on a blurred full-screen copy (OpusClip style)."""
+    return (
+        f"split=2[bg0][fg0];"
+        f"[bg0]scale={out_w}:{out_h}:force_original_aspect_ratio=increase,crop={out_w}:{out_h},boxblur=24:6[bg1];"
+        f"[fg0]scale={out_w}:{out_h}:force_original_aspect_ratio=decrease[fg1];"
+        f"[bg1][fg1]overlay=(W-w)/2:(H-h)/2:format=auto"
+    )
+
+
 def clip_video_chain(source_path: str, start: float, end: float, *, out_w: int = 720, out_h: int = 1280,
-                     reframe: str = "face", enhance: bool = False, watermark: bool = False) -> str:
+                     reframe: str = "face", enhance: bool = False, watermark: bool = False,
+                     aspect: str = "9:16", layout: str = "full",
+                     brightness: float = 0.0, contrast: float = 1.0, saturation: float = 1.0) -> str:
     """The crop/scale filter chain for one clip.
 
     - reframe 'face' = face-aware crop (falls back to center), 'center' = classic center crop.
@@ -376,13 +405,16 @@ def clip_video_chain(source_path: str, start: float, end: float, *, out_w: int =
         x = _smart_crop_x(source_path, start, end, info["width"], info["height"], crop_w)
     else:
         x = center_x
-    if enhance:
-        out_w, out_h = 1080, 1920
+    size_map = ASPECT_SIZES_HD if enhance else ASPECT_SIZES
+    out_w, out_h = size_map.get(aspect, size_map["9:16"])
+    grade = eq_filter(brightness, contrast, saturation)
+    if layout == "pad":
+        return grade
     chain = f"crop={crop_w}:{crop_h}:{x}:{y},scale={out_w}:{out_h}:flags=bilinear,setsar=1"
     if enhance:
         chain += ",unsharp=5:5:0.9:5:5:0.0"
-    # NOTE: the free-plan watermark is burned by the ASS caption layer (build_ass_captions),
-    # not drawtext — so it works on every ffmpeg build.
+    if grade:
+        chain += "," + grade
     return chain
 
 

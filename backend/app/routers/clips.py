@@ -108,6 +108,17 @@ class ProEditRequest(BaseModel):
     enhance: bool | None = None
     sfx: bool | None = None
     reframe: str | None = None
+    removed: list[list[float]] | None = None
+    aspect: str | None = None
+    layout: str | None = None
+    caption_pos: str | None = None
+    size_scale: float | None = None
+    caps: bool | None = None
+    brightness: float | None = None
+    contrast: float | None = None
+    saturation: float | None = None
+    volume: float | None = None
+    words_override: list[dict] | None = None
 
 
 @router.post("/api/clips/{clip_id}/pro-edit")
@@ -128,3 +139,39 @@ async def pro_edit_clip(
 
     background_tasks.add_task(pro_edit_clip_job, clip_id, payload.dict())
     return {"ok": True, "message": "Re-rendering in full quality — press Refresh in about a minute."}
+
+
+# ==================== EDITOR: clip fetch + details ====================
+
+@router.get("/api/clips/{clip_id}")
+def get_clip(clip_id: str, user=Depends(get_current_user)):
+    """One clip (for the editor page)."""
+    rows = (
+        get_admin().table("clips").select("*")
+        .eq("id", clip_id).eq("user_id", user.id).limit(1).execute().data or []
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Clip not found.")
+    return {"clip": rows[0]}
+
+
+class ClipMeta(BaseModel):
+    title: str | None = None
+    hook: str | None = None
+    hashtags: list[str] | None = None
+
+
+@router.patch("/api/clips/{clip_id}")
+def update_clip_meta(clip_id: str, payload: ClipMeta, user=Depends(get_current_user)):
+    """Update clip details (title / hook / hashtags)."""
+    fields = {k: v for k, v in payload.dict().items() if v is not None}
+    if not fields:
+        raise HTTPException(status_code=400, detail="Nothing to update.")
+    if "title" in fields:
+        fields["title"] = str(fields["title"])[:70]
+    if "hook" in fields:
+        fields["hook"] = str(fields["hook"])[:120]
+    if "hashtags" in fields:
+        fields["hashtags"] = [str(t)[:30] for t in fields["hashtags"]][:5]
+    get_admin().table("clips").update(fields).eq("id", clip_id).eq("user_id", user.id).execute()
+    return {"ok": True}

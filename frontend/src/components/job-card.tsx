@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { downloadClip, type Clip, type Job } from "@/lib/api";
-import ClipEditor from "@/components/clip-editor";
+import Link from "next/link";
+import { Wand2 } from "lucide-react";
 import type { Account } from "@/lib/api";
 import { formatDate, formatDuration } from "@/lib/utils";
 
@@ -176,8 +177,11 @@ export default function JobCard({ job, token, account }: { job: Job; token: stri
                       </>
                     )}
                   </Button>
-
-                  <ClipEditor clip={clip} token={token} />
+                  <Link href={`/editor/${clip.id}`}>
+                    <Button size="sm" variant="outline" className="w-full">
+                      <Wand2 className="h-4 w-4" /> Open Editor
+                    </Button>
+                  </Link>
                 </div>
               </div>
             ))}

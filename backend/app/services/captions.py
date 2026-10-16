@@ -31,10 +31,17 @@ STYLE_PRESETS: dict[str, dict] = {
 }
 
 
-def _header(style_name: str) -> str:
+def _header(style_name: str, size_scale: float = 1.0, pos: str = "bottom") -> str:
     p = STYLE_PRESETS.get(style_name) or STYLE_PRESETS["beast"]
     border_style = 3 if p.get("box") else 1
     outline = p.get("outline", 7)
+    if pos == "top":
+        alignment, margin_v = 8, 140
+    elif pos == "center":
+        alignment, margin_v = 5, 0
+    else:
+        alignment, margin_v = 2, p.get("margin_v", 300)
+    font_size = max(28, int(p["size"] * size_scale))
     return f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
@@ -45,7 +52,7 @@ YCbCr Matrix: TV.709
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Caption,{p['font']},{p['size']},{p['primary']},{p['secondary']},{p['outline_c']},{p['back']},{p['bold']},0,0,0,100,100,{p.get('spacing', 1)},0,{border_style},{outline},{p.get('shadow', 3)},2,80,80,{p.get('margin_v', 300)},1
+Style: Caption,{p['font']},{font_size},{p['primary']},{p['secondary']},{p['outline_c']},{p['back']},{p['bold']},0,0,0,100,100,{p.get('spacing', 1)},0,{border_style},{outline},{p.get('shadow', 3)},{alignment},80,80,{margin_v},1
 Style: Mark,DejaVu Sans,42,&H96FFFFFF,&H00FFFFFF,&H00202020,&H00000000,0,0,0,0,100,100,1,0,1,3,1,3,28,28,42,1
 
 [Events]
@@ -100,7 +107,8 @@ def _group_words_into_lines(words: list[dict], clip_start: float, clip_end: floa
 
 
 def build_ass_captions(words: list[dict], clip_start: float, clip_end: float, out_path: str,
-                       style: str = "beast", watermark: bool = False) -> str:
+                       style: str = "beast", watermark: bool = False,
+                       pos: str = "bottom", size_scale: float = 1.0, caps: bool = True) -> str:
     """Write an animated .ass subtitle file for one clip, in the chosen style."""
     lines = _group_words_into_lines(words, clip_start, clip_end)
     events: list[str] = []
@@ -129,7 +137,8 @@ def build_ass_captions(words: list[dict], clip_start: float, clip_end: float, ou
             else:
                 slot = line_end - word["start"]
             duration_cs = max(1, int(round(slot * 100)))
-            clean = word["word"].upper().replace("{", "(").replace("}", ")")
+            raw_word = word["word"].replace("{", "(").replace("}", ")")
+            clean = raw_word.upper() if caps else raw_word
             parts.append(f"{{\\kf{duration_cs}}}{clean} ")
 
         events.append(
@@ -144,7 +153,7 @@ def build_ass_captions(words: list[dict], clip_start: float, clip_end: float, ou
         events.append(f"Dialogue: 0,{_timestamp(0)},{_timestamp(clip_len)},Mark,,0,0,0,,ClipViral")
 
     with open(out_path, "w", encoding="utf-8") as f:
-        f.write(_header(style))
+        f.write(_header(style, size_scale=size_scale, pos=pos))
         f.write("\n".join(events))
         f.write("\n")
     return out_path
