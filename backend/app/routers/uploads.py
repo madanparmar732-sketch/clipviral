@@ -81,6 +81,14 @@ async def upload_video(
     }
     get_admin().table("jobs").insert(job_row).execute()
 
+    # Keep a storage copy RIGHT AWAY so a server restart can never lose this job.
+    try:
+        from app.services import storage as _storage
+
+        _storage.upload_file_to_storage(destination, f"{job_id}/source.mp4")
+    except Exception:
+        logger.exception("source pre-upload failed (not fatal)")
+
     # This runs AFTER the response is sent, in the background.
     background_tasks.add_task(run_pipeline, job_id, destination)
 
@@ -116,7 +124,7 @@ async def upload_from_link(
         "status": "queued",
         "stage": "fetching_link",
         "progress": 2,
-        "source_filename": f"Link: {_urlparse(url).netloc}"[:80],
+        "source_filename": f"Link: {_urlparse(url).netloc}|||{url}",
         "source_size_bytes": 0,
     }
     get_admin().table("jobs").insert(job_row).execute()

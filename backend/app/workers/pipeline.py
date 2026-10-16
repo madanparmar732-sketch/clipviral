@@ -30,17 +30,89 @@ import queue as _queue
 _TASKS: "_queue.PriorityQueue" = _queue.PriorityQueue()
 _WORKER_STARTED = threading.Event()
 _WORKER_GUARD = threading.Lock()
+_INFLIGHT: set[str] = set()
+_INFLIGHT_LOCK = threading.Lock()
+
+
+def _mark_inflight(job_id: str) -> None:
+    with _INFLIGHT_LOCK:
+        _INFLIGHT.add(job_id)
+
+
+def _unmark_inflight(job_id: str) -> None:
+    with _INFLIGHT_LOCK:
+        _INFLIGHT.discard(job_id)
 
 
 def _queue_worker() -> None:
+    _recover_stuck()  # pick up anything a restart left behind
     while True:
-        _prio, _seq, job_id, source_path = _TASKS.get()
+        try:
+            _prio, _seq, job_id, source_path = _TASKS.get(timeout=30)
+        except _queue.Empty:
+            _recover_stuck()  # periodic sweep — nothing is ever stuck forever
+            continue
         try:
             _run_pipeline_unserialized(job_id, source_path)
         except Exception:
             logger.exception("Pipeline crashed for job %s", job_id)
         finally:
             _TASKS.task_done()
+            _unmark_inflight(job_id)
+            shutil.rmtree(os.path.dirname(source_path), ignore_errors=True)
+
+
+def ensure_worker_started() -> None:
+    with _WORKER_GUARD:
+        if not _WORKER_STARTED.is_set():
+            threading.Thread(target=_queue_worker, daemon=True).start()
+            _WORKER_STARTED.set()
+
+
+def _recover_stuck() -> None:
+    """Re-queue jobs lost to a deploy/restart. Nothing stays queued forever."""
+    try:
+        res = (
+            get_admin()
+            .table("jobs")
+            .select("*")
+            .in_("status", ["queued", "processing"])
+            .order("created_at")
+            .limit(10)
+            .execute()
+        )
+        rows = res.data or []
+    except Exception:
+        logger.exception("recover: could not list jobs")
+        return
+
+    for row in rows:
+        job_id = row.get("id")
+        if not job_id:
+            continue
+        with _INFLIGHT_LOCK:
+            if job_id in _INFLIGHT:
+                continue
+            _INFLIGHT.add(job_id)  # reserve before enqueue
+        fn = row.get("source_filename") or ""
+        url = fn.split("|||", 1)[1].strip() if "|||" in fn else ""
+        if url.startswith("http"):
+            logger.info("recover: re-queuing link job %s", job_id)
+            threading.Thread(target=fetch_and_run, args=(job_id, url), daemon=True).start()
+            continue
+        local = os.path.join(settings.media_dir, job_id, "source.mp4")
+        if os.path.exists(local) or storage.download_file_from_storage(f"{job_id}/source.mp4", local):
+            logger.info("recover: re-queuing stored-source job %s", job_id)
+            run_pipeline(job_id, local)
+            continue
+        logger.warning("recover: job %s has no recoverable source - failing it", job_id)
+        update_job(
+            job_id,
+            status="failed",
+            stage="failed",
+            error="The server restarted before this job started and the video was not stored yet. Please add the video again.",
+        )
+        _unmark_inflight(job_id)
 
 
 def _user_prefs(user_id: str) -> dict:
@@ -64,10 +136,8 @@ def _user_prefs(user_id: str) -> dict:
 
 def run_pipeline(job_id: str, source_path: str) -> None:
     """Entry point used by the upload route. Pro jobs get priority."""
-    with _WORKER_GUARD:
-        if not _WORKER_STARTED.is_set():
-            threading.Thread(target=_queue_worker, daemon=True).start()
-            _WORKER_STARTED.set()
+    ensure_worker_started()
+    _mark_inflight(job_id)
 
     priority = 5
     try:
@@ -297,6 +367,8 @@ def fetch_and_run(job_id: str, url: str) -> None:
     """Background task: fetch the video from the link, then run the normal pipeline."""
     from app.services import link_fetcher
 
+    _mark_inflight(job_id)
+
     workdir = os.path.join(settings.media_dir, job_id)
     os.makedirs(workdir, exist_ok=True)
 
@@ -306,13 +378,14 @@ def fetch_and_run(job_id: str, url: str) -> None:
     try:
         if _is_cancelled(job_id):
             logger.info("Job %s was cancelled - stopping.", job_id)
+            _unmark_inflight(job_id)
             return
         update_job(job_id, status="processing", stage="fetching_link", progress=2)
         result = link_fetcher.fetch_video(url, workdir, on_progress=on_progress)
         fields = {
             "stage": "link_fetched",
             "progress": 22,
-            "source_filename": result["title"],
+            "source_filename": f"{result['title']}|||{url}",
             "source_size_bytes": result["size"],
         }
         if result.get("duration"):
@@ -328,12 +401,14 @@ def fetch_and_run(job_id: str, url: str) -> None:
             error=f"Could not fetch that video link: {str(exc)[:220]}",
         )
         shutil.rmtree(workdir, ignore_errors=True)
+        _unmark_inflight(job_id)
         return
 
     try:
         run_pipeline(job_id, result["path"])
-    finally:
+    except Exception:
         shutil.rmtree(workdir, ignore_errors=True)
+        raise
 
 
 def _is_cancelled(job_id: str) -> bool:

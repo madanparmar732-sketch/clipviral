@@ -28,6 +28,17 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title=settings.app_name, version="1.0.0", lifespan=lifespan)
 
+
+@app.on_event("startup")
+def _boot_worker() -> None:
+    """Start the job worker + recover anything a restart left queued."""
+    try:
+        from app.workers.pipeline import ensure_worker_started
+
+        ensure_worker_started()
+    except Exception:
+        pass
+
 # CORS = the "guest list" that says which websites may call this API.
 # Without this the browser blocks requests and you get CORS errors (see TROUBLESHOOTING.md).
 app.add_middleware(

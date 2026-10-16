@@ -78,7 +78,7 @@ export default function JobCard({ job, token, account }: { job: Job; token: stri
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2">
-              {job.source_filename ?? "Untitled video"}
+              {(job.source_filename ?? "Untitled video").split("|||")[0]}
               {statusBadge(job.status)}
               {(job.status === "queued" || job.status === "processing") && (
                 <Button

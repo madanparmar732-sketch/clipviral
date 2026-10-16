@@ -37,3 +37,17 @@ def upload_file_to_storage(local_path: str, storage_path: str) -> str:
             time.sleep(2 * (attempt + 1))
 
     raise RuntimeError(f"Could not upload {storage_path} to Supabase Storage: {last_error}")
+
+
+def download_file_from_storage(storage_path: str, local_path: str) -> bool:
+    """Pull a file from the clips bucket to local disk. True on success."""
+    try:
+        data = get_admin().storage.from_(settings.clips_bucket).download(storage_path)
+        if not data:
+            return False
+        os.makedirs(os.path.dirname(local_path) or ".", exist_ok=True)
+        with open(local_path, "wb") as fh:
+            fh.write(data)
+        return True
+    except Exception:
+        return False
