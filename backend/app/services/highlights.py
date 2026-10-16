@@ -38,7 +38,7 @@ Return ONLY valid JSON with exactly this shape:
 
 Rules:
 - Return exactly {n} clips, ranked best-first.
-- Each clip must be between {min_s} and {max_s} seconds long. "start" and "end" are \
+- IDEAL length is 20-35 seconds (hard limits {min_s}-{max_s}). Shorter punchy clips beat long rambles. "start" and "end" are \
 seconds inside the video, within [0, {duration}].
 - PICK HOOKS, NOT SECTIONS: a clip starts at a bold claim, a question, a shocking \
 fact, a punchline setup, a story turning point, or a burst of emotion — NEVER just \
@@ -211,11 +211,32 @@ def _ask_ai(client, system_prompt: str, user_prompt: str) -> list[dict]:
     return out
 
 
+def _snap_to_sentences(clips: list[dict], segments: list[dict]) -> list[dict]:
+    """Move each clip's edges to sentence/segment boundaries — never cut mid-word."""
+    if not segments:
+        return clips
+    starts = [float(sg.get("start", 0)) for sg in segments]
+    ends = [float(sg.get("end", 0)) for sg in segments]
+    for c in clips:
+        st, en = float(c.get("start", 0)), float(c.get("end", 0))
+        for i, (a, b) in enumerate(zip(starts, ends)):
+            if a < st < b:
+                st = a
+                break
+        for a, b in zip(starts, ends):
+            if a < en < b:
+                en = b
+                break
+        c["start"] = round(max(0.0, st - 0.15), 2)
+        c["end"] = round(min(float(duration), en + 0.1), 2)
+    return clips
+
+
 def detect_highlights(transcript: dict, duration: float, n: int | None = None) -> list[dict]:
     """Ask the AI for the top viral moments. Smart fallback if the AI is unreachable."""
     segments = transcript.get("segments") or []
     n = n or settings.top_n_clips
-    n = max(2, min(n, int(duration / 45) or 2))  # ~one clip per 45s of video (no overlapping junk)
+    n = max(2, min(n, int(duration / 40) or 2))  # ~one clip per 40s of video
 
     if not segments or duration <= 0:
         return []
@@ -261,4 +282,5 @@ def detect_highlights(transcript: dict, duration: float, n: int | None = None) -
         if all(clip["end"] <= k["start"] + 1 or clip["start"] >= k["end"] - 1 for k in kept):
             kept.append(clip)
     kept.sort(key=lambda c: c["start"])
+    kept = _snap_to_sentences(kept, segments)
     return kept[:n]
