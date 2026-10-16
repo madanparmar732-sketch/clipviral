@@ -2,6 +2,10 @@
 
 Security first: the URL is checked so nobody can make the server fetch its own
 internal files/addresses (this is called an SSRF attack).
+
+YouTube sometimes shows a "confirm you're not a bot" wall to cloud servers.
+That is why we try several PLAYER DISGUISES (android, tv, ios, ...) until one
+gets through — like trying on different outfits at a bouncer. 🎭
 """
 
 import glob
@@ -17,6 +21,21 @@ MAX_LINK_BYTES = 500 * 1024 * 1024  # never fetch more than 500 MB
 MAX_LINK_SECONDS = 2 * 60 * 60      # never more than 2 hours of video
 
 BLOCKED_HOSTNAMES = {"localhost", "127.0.0.1", "0.0.0.0", "::1", "metadata.google.internal"}
+
+# Each disguise = a different YouTube "player". The bot wall knows some of them,
+# not all. Order matters: android punched through the exact video that failed
+# on Render, so it goes first.
+YOUTUBE_STRATEGIES: list[tuple[str, list[str] | None]] = [
+    ("android", ["android"]),
+    ("tv", ["tv"]),
+    ("ios", ["ios"]),
+    ("android_vr", ["android_vr"]),
+    ("web_embedded", ["web_embedded"]),
+    ("mweb", ["mweb"]),
+    ("default", None),
+]
+
+_FORMAT = "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/bv*[height<=1080]+ba/b[height<=1080]/b"
 
 
 def validate_url(url: str) -> str:
@@ -41,6 +60,33 @@ def validate_url(url: str) -> str:
     return cleaned
 
 
+def _human_error(err: Exception) -> str:
+    """Turn yt-dlp's wall of text into one friendly sentence."""
+    text = str(err)
+    low = text.lower()
+    if "sign in to confirm" in low or "not a bot" in low:
+        return (
+            "YouTube showed a 'confirm you're not a bot' wall for this video. "
+            "Please try: a different video, another platform (Facebook/X/Instagram), "
+            "or upload the video file directly."
+        )
+    if "age" in low and "restrict" in low:
+        return (
+            "This video is age-restricted (needs a YouTube login), so we can't fetch it. "
+            "Please upload the video file directly."
+        )
+    if "private video" in low or "video is private" in low:
+        return "This video is private — only public links can be fetched."
+    if "unsupported url" in low or "no video found" in low or "not a valid url" in low:
+        return "That link doesn't contain a downloadable video. Please check the URL."
+    if "max_filesize" in low or "file is larger" in low:
+        return "That video is over the 500 MB limit. Please try a shorter one or upload directly."
+    if "max_duration" in low:
+        return "That video is longer than 2 hours. Please try a shorter one."
+    last = text.strip().splitlines()[-1] if text.strip() else "unknown error"
+    return f"Could not fetch that video: {last[:150]}"
+
+
 def fetch_video(url: str, workdir: str, on_progress=None) -> dict:
     """Download the video into workdir.
 
@@ -49,6 +95,8 @@ def fetch_video(url: str, workdir: str, on_progress=None) -> dict:
     import yt_dlp  # lazy import so the API boots fast
 
     os.makedirs(workdir, exist_ok=True)
+    is_youtube = any(h in url for h in ("youtube.com", "youtu.be", "youtube-nocookie.com"))
+    strategies = YOUTUBE_STRATEGIES if is_youtube else [("default", None)]
 
     def hook(d):
         if on_progress and d.get("status") == "downloading":
@@ -60,21 +108,42 @@ def fetch_video(url: str, workdir: str, on_progress=None) -> dict:
                 except Exception:
                     pass
 
-    opts = {
-        # Best quality up to 1080p, merged to mp4. Falls back to whatever exists.
-        "format": "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b",
-        "outtmpl": os.path.join(workdir, "source.%(ext)s"),
-        "merge_output_format": "mp4",
-        "noplaylist": True,
-        "max_filesize": MAX_LINK_BYTES,
-        "max_duration": MAX_LINK_SECONDS,
-        "quiet": True,
-        "no_warnings": True,
-        "progress_hooks": [hook],
-    }
+    last_err: Exception | None = None
+    info = None
 
-    with yt_dlp.YoutubeDL(opts) as ydl:
-        info = ydl.extract_info(url, download=True)
+    for name, clients in strategies:
+        # clean leftovers from a previous attempt
+        for f in glob.glob(os.path.join(workdir, "source.*")):
+            try:
+                os.remove(f)
+            except OSError:
+                pass
+
+        opts = {
+            "format": _FORMAT,
+            "outtmpl": os.path.join(workdir, "source.%(ext)s"),
+            "merge_output_format": "mp4",
+            "noplaylist": True,
+            "max_filesize": MAX_LINK_BYTES,
+            "max_duration": MAX_LINK_SECONDS,
+            "quiet": True,
+            "no_warnings": True,
+            "progress_hooks": [hook],
+        }
+        if clients:
+            opts["extractor_args"] = {"youtube": {"player_client": clients}}
+
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+            logger.info("Link fetch succeeded with disguise %r", name)
+            break
+        except Exception as exc:
+            last_err = exc
+            logger.warning("Link fetch disguise %r failed: %s", name, str(exc)[:160])
+
+    if info is None:
+        raise RuntimeError(_human_error(last_err or Exception("unknown error")))
 
     if info.get("_type") == "playlist":
         entries = info.get("entries") or []
@@ -100,7 +169,7 @@ def fetch_video(url: str, workdir: str, on_progress=None) -> dict:
             if not c.endswith((".part", ".ytdl", ".json", ".temp"))
         ]
         if not candidates:
-            raise RuntimeError("Could not download the video from that link.")
+            raise RuntimeError("Could not save the downloaded video.")
         path = candidates[0]
 
     size = os.path.getsize(path)

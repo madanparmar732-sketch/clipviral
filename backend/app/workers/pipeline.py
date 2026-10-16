@@ -202,7 +202,7 @@ def fetch_and_run(job_id: str, url: str) -> None:
             job_id,
             status="failed",
             stage="failed",
-            error=f"Could not fetch that video link: {str(exc)[:400]}",
+            error=f"Could not fetch that video link: {str(exc)[:220]}",
         )
         shutil.rmtree(workdir, ignore_errors=True)
         return
