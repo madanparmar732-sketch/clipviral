@@ -74,7 +74,7 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
           </p>
         </div>
         <UploadDropzone compact />
-        <AdSlot compact />
+        {account?.plan !== "pro" && <AdSlot compact slot="dashboard-top" />}
         <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
           <div className="h-px flex-1 bg-white/10" />
           <span>OR</span>

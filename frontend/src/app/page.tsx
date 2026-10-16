@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AdSlot from "@/components/ad-slot";
 import {
   ArrowRight,
   Captions,
@@ -220,6 +221,11 @@ export default function LandingPage() {
             ))}
           </div>
         </div>
+      </section>
+
+      {/* ---------------- AD (Google AdSense when enabled) ---------------- */}
+      <section className="container pb-8">
+        <AdSlot slot="landing-mid" />
       </section>
 
       {/* ---------------- UPLOAD / CTA ---------------- */}
