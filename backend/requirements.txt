@@ -15,3 +15,6 @@ opencv-python-headless==4.10.0.84
 # versions stop working (YouTube bot-walls stale players). Changing this line
 # also busts Docker's pip cache so Render always installs the fresh version.
 yt-dlp==2026.8.19
+# PO-token provider plugin — talks to the bgutil Node server in docker-start.sh
+# and mints Proof-of-Origin tokens (defeats YouTube's bot wall on cloud IPs).
+bgutil-ytdlp-pot-provider==2.0.2

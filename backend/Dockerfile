@@ -11,6 +11,20 @@ RUN apt-get update \
 
 WORKDIR /app
 
+# --- YouTube anti-bot armour ---
+# Node.js 22 = yt-dlp's JS challenge solver (without it many formats go "missing")
+# + the bgutil PO-token provider mints Proof-of-Origin tokens that defeat YouTube's
+# "Sign in to confirm you're not a bot" wall on datacenter IPs.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates gnupg git \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+RUN git clone --depth 1 --branch 2.0.2 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /opt/bgutil \
+    && cd /opt/bgutil/server \
+    && npm ci \
+    && npx tsc
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

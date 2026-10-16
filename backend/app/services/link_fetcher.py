@@ -27,6 +27,11 @@ BLOCKED_HOSTNAMES = {"localhost", "127.0.0.1", "0.0.0.0", "::1", "metadata.googl
 # on Render, so it goes first.
 YOUTUBE_STRATEGIES: list[tuple[str, list[str] | None]] = [
     ("android", ["android"]),
+    # PO-token flow combo (yt-dlp issue #253): when the first client gets
+    # LOGIN_REQUIRED, this mix walks yt-dlp into the clients that USE PO tokens
+    # (the bgutil provider mints them). This is the flagged-IP wall breaker.
+    ("po_combo", ["mweb", "tv", "web_safari"]),
+    ("web", ["web"]),
     ("tv", ["tv"]),
     ("ios", ["ios"]),
     ("android_vr", ["android_vr"]),

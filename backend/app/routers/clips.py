@@ -250,7 +250,7 @@ def api_health():
         pass
     return {
         "ok": not bad,
-        "build": "2026-10-16.2",  # bump on every deploy so we can see which code is live
+        "build": "2026-10-16.3",  # bump on every deploy so we can see which code is live
         "checks": checks,
         "fixed_now": fixes,
         "time": doctor._now_iso(),
