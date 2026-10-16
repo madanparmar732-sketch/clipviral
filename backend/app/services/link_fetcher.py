@@ -1,0 +1,112 @@
+"""Downloads a video from a link (YouTube, Facebook, X, Instagram, ...) using yt-dlp.
+
+Security first: the URL is checked so nobody can make the server fetch its own
+internal files/addresses (this is called an SSRF attack).
+"""
+
+import glob
+import ipaddress
+import logging
+import os
+import socket
+from urllib.parse import urlparse
+
+logger = logging.getLogger(__name__)
+
+MAX_LINK_BYTES = 500 * 1024 * 1024  # never fetch more than 500 MB
+MAX_LINK_SECONDS = 2 * 60 * 60      # never more than 2 hours of video
+
+BLOCKED_HOSTNAMES = {"localhost", "127.0.0.1", "0.0.0.0", "::1", "metadata.google.internal"}
+
+
+def validate_url(url: str) -> str:
+    """Make sure the URL is a real public http(s) link. Returns the cleaned URL."""
+    cleaned = (url or "").strip()
+    if not cleaned:
+        raise ValueError("Please paste a video link.")
+    parsed = urlparse(cleaned)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError("Please paste a normal video link starting with http:// or https://")
+    host = (parsed.hostname or "").lower()
+    if not host or host in BLOCKED_HOSTNAMES:
+        raise ValueError("That address is not allowed.")
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror as exc:
+        raise ValueError("Could not find that website. Check the link.") from exc
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            raise ValueError("That address is not allowed.")
+    return cleaned
+
+
+def fetch_video(url: str, workdir: str, on_progress=None) -> dict:
+    """Download the video into workdir.
+
+    Returns {"path": ..., "title": ..., "duration": ..., "size": ...}.
+    """
+    import yt_dlp  # lazy import so the API boots fast
+
+    os.makedirs(workdir, exist_ok=True)
+
+    def hook(d):
+        if on_progress and d.get("status") == "downloading":
+            total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
+            done = d.get("downloaded_bytes") or 0
+            if total:
+                try:
+                    on_progress(min(99, int(done / total * 100)))
+                except Exception:
+                    pass
+
+    opts = {
+        # Best quality up to 1080p, merged to mp4. Falls back to whatever exists.
+        "format": "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b",
+        "outtmpl": os.path.join(workdir, "source.%(ext)s"),
+        "merge_output_format": "mp4",
+        "noplaylist": True,
+        "max_filesize": MAX_LINK_BYTES,
+        "max_duration": MAX_LINK_SECONDS,
+        "quiet": True,
+        "no_warnings": True,
+        "progress_hooks": [hook],
+    }
+
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(url, download=True)
+
+    if info.get("_type") == "playlist":
+        entries = info.get("entries") or []
+        if not entries:
+            raise RuntimeError("No downloadable video found at that link.")
+        info = entries[0]
+
+    title = (info.get("title") or "Linked video").strip()[:120] or "Linked video"
+    try:
+        duration = float(info.get("duration") or 0)
+    except (TypeError, ValueError):
+        duration = 0.0
+
+    # Find the downloaded file on disk.
+    path = ""
+    for req in info.get("requested_downloads") or []:
+        if req.get("filepath"):
+            path = req["filepath"]
+            break
+    if not path or not os.path.exists(path):
+        candidates = [
+            c for c in sorted(glob.glob(os.path.join(workdir, "source.*")))
+            if not c.endswith((".part", ".ytdl", ".json", ".temp"))
+        ]
+        if not candidates:
+            raise RuntimeError("Could not download the video from that link.")
+        path = candidates[0]
+
+    size = os.path.getsize(path)
+    if size <= 0:
+        raise RuntimeError("The downloaded video is empty.")
+    if size > MAX_LINK_BYTES:
+        raise RuntimeError("That video is over the 500 MB limit.")
+
+    return {"path": path, "title": title, "duration": duration, "size": size}

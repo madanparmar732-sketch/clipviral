@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     chat_temperature: float = 0.3  # low temperature keeps the AI's JSON answers valid
     top_n_clips: int = 3
     clip_min_seconds: int = 15
-    clip_max_seconds: int = 90
+    clip_max_seconds: int = 55  # shorter = much faster renders + better for shorts
 
     # Extra "recap reel" made with MoviePy (needs more RAM, off by default)
     recap_enabled: bool = False

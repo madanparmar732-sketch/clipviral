@@ -4,10 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Inbox, RefreshCw } from "lucide-react";
 
 import JobCard from "@/components/job-card";
+import LinkImport from "@/components/link-import";
 import UploadDropzone from "@/components/upload-dropzone";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { listJobs, type Job } from "@/lib/api";
+import { listJobs, keepApiWarm, type Job } from "@/lib/api";
 
 export default function DashboardClient({ userEmail }: { userEmail: string }) {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -40,6 +41,13 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
     });
   }, [refresh]);
 
+  // Keep the tiny server awake while the dashboard is open (Render naps after 15 min idle).
+  useEffect(() => {
+    keepApiWarm();
+    const warm = setInterval(keepApiWarm, 4 * 60 * 1000);
+    return () => clearInterval(warm);
+  }, []);
+
   // 2) While any job is still cooking, refresh every 5 seconds.
   useEffect(() => {
     const hasActive = jobs.some((j) => j.status === "queued" || j.status === "processing");
@@ -57,11 +65,18 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
         <div className="mb-6">
           <h2 className="text-xl font-semibold">Upload a new video</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Welcome back{userEmail ? `, ${userEmail}` : ""}. Drop a long video — the AI cuts it into
-            viral 9:16 clips with animated captions.
+            Welcome back{userEmail ? `, ${userEmail}` : ""}. Drop a long video or paste a link
+            (YouTube, Facebook, X, Instagram) — the AI cuts it into viral 9:16 clips with animated
+            captions.
           </p>
         </div>
         <UploadDropzone compact />
+        <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="h-px flex-1 bg-white/10" />
+          <span>OR</span>
+          <div className="h-px flex-1 bg-white/10" />
+        </div>
+        <LinkImport />
       </section>
 
       <section>

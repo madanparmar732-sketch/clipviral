@@ -6,6 +6,7 @@ import shutil
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel
 
 from app.auth import get_current_user
 from app.config import settings
@@ -84,4 +85,44 @@ async def upload_video(
     background_tasks.add_task(run_pipeline, job_id, destination)
 
     logger.info("Job %s created for %s (%.1f MB)", job_id, original_name, size / 1024 / 1024)
+    return {"job": {**job_row, "clips": []}}
+
+
+class LinkRequest(BaseModel):
+    url: str
+
+
+@router.post("/api/videos/from-link")
+async def upload_from_link(
+    background_tasks: BackgroundTasks,
+    payload: LinkRequest,
+    user=Depends(get_current_user),
+):
+    """Paste a YouTube / Facebook / X / Instagram link: we fetch the video and clip it."""
+    from app.services.link_fetcher import validate_url
+    from app.workers.pipeline import fetch_and_run
+
+    try:
+        url = validate_url(payload.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    from urllib.parse import urlparse as _urlparse
+
+    job_id = str(uuid.uuid4())
+    job_row = {
+        "id": job_id,
+        "user_id": user.id,
+        "status": "queued",
+        "stage": "fetching_link",
+        "progress": 2,
+        "source_filename": f"Link: {_urlparse(url).netloc}"[:80],
+        "source_size_bytes": 0,
+    }
+    get_admin().table("jobs").insert(job_row).execute()
+
+    # Fetch the video + run the pipeline, both in the background.
+    background_tasks.add_task(fetch_and_run, job_id, url)
+
+    logger.info("Job %s created from link %s", job_id, url[:120])
     return {"job": {**job_row, "clips": []}}

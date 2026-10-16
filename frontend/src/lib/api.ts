@@ -79,6 +79,30 @@ export function uploadVideo(
   });
 }
 
+/** Ask the backend to fetch a video from a link (YouTube, Facebook, X, ...) and clip it. */
+export async function importFromLink(url: string, token: string): Promise<{ job: Job }> {
+  const res = await fetch(`${API_URL}/api/videos/from-link`, {
+    method: "POST",
+    headers: { ...authHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+    cache: "no-store",
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(body.detail ?? `Could not start the link job (HTTP ${res.status})`);
+  }
+  return body;
+}
+
+/** Tiny ping that keeps the free server from napping while the dashboard is open. */
+export async function keepApiWarm(): Promise<void> {
+  try {
+    await fetch(`${API_URL}/api/health`, { cache: "no-store" });
+  } catch {
+    /* machine may be waking up — that's fine */
+  }
+}
+
 export async function listJobs(token: string): Promise<Job[]> {
   const res = await fetch(`${API_URL}/api/jobs`, {
     headers: authHeaders(token),

@@ -33,6 +33,8 @@ function stageLabel(stage?: string | null) {
   if (!stage) return "";
   const map: Record<string, string> = {
     queued: "Waiting in line…",
+    fetching_link: "Downloading video from your link…",
+    link_fetched: "Video downloaded! Warming up the AI…",
     measuring_video: "Measuring your video…",
     transcribing_audio: "AI is listening & writing the transcript…",
     finding_viral_moments: "AI is hunting for viral moments…",

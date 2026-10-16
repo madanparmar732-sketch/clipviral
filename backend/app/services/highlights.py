@@ -31,9 +31,12 @@ Rules:
 - Return exactly {n} clips, ranked best-first.
 - Each clip must be between {min_s} and {max_s} seconds long.
 - "start" and "end" are seconds inside the video, must be within [0, {duration}].
-- Start each clip right on a strong moment (bold claim, punchline, story turn, big emotion) \
-and end after the payoff — never mid-sentence.
+- START STRONG: the clip's first words must be a hook — a bold claim, a question, a surprising \
+fact, or the natural beginning of a story. NEVER start mid-thought or mid-sentence.
+- END CLEAN: finish right after the payoff or punchline lands. Never mid-sentence.
 - Clips must be self-contained: understandable without seeing the rest of the video.
+- Snap "start" to the beginning of a spoken phrase (check the transcript timestamps) and leave \
+0.2-0.3 seconds of breathing room before the first word.
 - Do not overlap clips.
 - "score" is an integer 1-100 virality estimate (hook strength, emotion, shareability).
 - "hashtags": 3-5 tags that fit the topic, each starting with #.
@@ -65,6 +68,8 @@ def _clamp_clip(clip: dict, duration: float, index: int) -> dict | None:
 
     start = max(0.0, min(start, duration))
     end = max(0.0, min(end, duration))
+    # Breathing room before the first word so clips never start abruptly mid-breath.
+    start = max(0.0, start - 0.25)
 
     length = end - start
     if length < settings.clip_min_seconds:

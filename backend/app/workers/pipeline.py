@@ -12,6 +12,7 @@ import logging
 import os
 import shutil
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 
@@ -77,8 +78,19 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
             update_job(
                 job_id,
                 stage=f"rendering_clip_{index + 1}_of_{len(clips)}",
-                progress=45 + int(20 * index),
+                progress=42 + 16 * index,
             )
+
+            # Live progress WHILE ffmpeg renders (the bar keeps moving!)
+            base_progress = 42 + 16 * index
+            last_touch = [0.0]
+
+            def _clip_progress(frac: float, _base=base_progress, _last=last_touch) -> None:
+                now = time.time()
+                if now - _last[0] < 2.0 and frac < 0.99:
+                    return  # don't hammer the database
+                _last[0] = now
+                update_job(job_id, progress=_base + int(14 * max(0.0, min(1.0, frac))))
 
             clip_id = str(uuid.uuid4())
             ass_path = os.path.join(workdir, f"clip_{index + 1}.ass")
@@ -89,7 +101,8 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
                 transcript["words"], clip["start"], clip["end"], ass_path
             )
             video_processor.render_clip(
-                source_path, clip["start"], clip["end"], ass_path, clip_path
+                source_path, clip["start"], clip["end"], ass_path, clip_path,
+                on_progress=_clip_progress,
             )
             try:
                 video_processor.make_thumbnail(clip_path, thumb_path)
@@ -157,4 +170,44 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
 
     finally:
         # Free disk space: delete the working folder (clips are already in Supabase).
+        shutil.rmtree(workdir, ignore_errors=True)
+
+
+def fetch_and_run(job_id: str, url: str) -> None:
+    """Background task: fetch the video from the link, then run the normal pipeline."""
+    from app.services import link_fetcher
+
+    workdir = os.path.join(settings.media_dir, job_id)
+    os.makedirs(workdir, exist_ok=True)
+
+    def on_progress(percent: int) -> None:
+        update_job(job_id, stage="fetching_link", progress=max(2, min(20, 2 + percent // 6)))
+
+    try:
+        update_job(job_id, status="processing", stage="fetching_link", progress=2)
+        result = link_fetcher.fetch_video(url, workdir, on_progress=on_progress)
+        fields = {
+            "stage": "link_fetched",
+            "progress": 22,
+            "source_filename": result["title"],
+            "source_size_bytes": result["size"],
+        }
+        if result.get("duration"):
+            fields["duration_seconds"] = result["duration"]
+        update_job(job_id, **fields)
+        logger.info("Job %s: fetched link video %r (%.1f MB)", job_id, result["title"], result["size"] / 1024 / 1024)
+    except Exception as exc:
+        logger.exception("Link fetch failed for job %s", job_id)
+        update_job(
+            job_id,
+            status="failed",
+            stage="failed",
+            error=f"Could not fetch that video link: {str(exc)[:400]}",
+        )
+        shutil.rmtree(workdir, ignore_errors=True)
+        return
+
+    try:
+        run_pipeline(job_id, result["path"])
+    finally:
         shutil.rmtree(workdir, ignore_errors=True)

@@ -1,7 +1,11 @@
 """Builds animated captions (ASS subtitle file) from word timestamps.
 
 The style: big bold uppercase words, word-by-word karaoke highlight (yellow),
-a little pop-scale animation when each line appears — like OpusClip/ CapCut.
+a little pop-scale animation when each line appears — like OpusClip/CapCut.
+
+GOLDEN RULE: caption lines NEVER overlap in time. The instant line N+1
+appears, line N is gone. Overlapping events smash letters on top of each
+other (that was the "WE FALLI KNOW" bug).
 """
 
 ASS_HEADER = """[Script Info]
@@ -32,25 +36,37 @@ def _timestamp(seconds: float) -> str:
 
 
 def _group_words_into_lines(words: list[dict], clip_start: float, clip_end: float) -> list[list[dict]]:
-    """Bundle words into caption lines: max 4 words, split on long pauses."""
-    inside = [
-        {
-            "start": max(0.0, w["start"] - clip_start),
-            "end": max(0.0, w["end"] - clip_start),
-            "word": (w.get("word") or "").strip(),
-        }
-        for w in words
-        if w.get("end", 0) > clip_start + 0.05 and w.get("start", 9e9) < clip_end - 0.05
-    ]
+    """Bundle words into caption lines: max 4 words, split on long pauses.
+
+    Also forces word times to be strictly increasing — Whisper sometimes
+    reports tiny overlapping word timestamps, which smash the karaoke timer.
+    """
+    inside = []
+    for w in words:
+        text = (w.get("word") or "").strip()
+        if not text:
+            continue
+        s = max(0.0, float(w.get("start", 0.0)) - clip_start)
+        e = max(0.0, float(w.get("end", 0.0)) - clip_start)
+        if e <= s:
+            e = s + 0.12
+        inside.append({"start": s, "end": e, "word": text})
+    inside.sort(key=lambda w: w["start"])
+
+    fixed: list[dict] = []
+    for w in inside:
+        if fixed and w["start"] < fixed[-1]["start"] + 0.02:
+            w["start"] = fixed[-1]["start"] + 0.02
+        if w["end"] < w["start"] + 0.05:
+            w["end"] = w["start"] + 0.12
+        fixed.append(w)
 
     lines: list[list[dict]] = []
     current: list[dict] = []
-    for word in inside:
-        if not word["word"]:
-            continue
+    for word in fixed:
         if current:
             gap = word["start"] - current[-1]["end"]
-            if len(current) >= 4 or gap > 0.8:
+            if len(current) >= 4 or gap > 0.7:
                 lines.append(current)
                 current = []
         current.append(word)
@@ -63,19 +79,37 @@ def build_ass_captions(words: list[dict], clip_start: float, clip_end: float, ou
     """Write an animated .ass subtitle file for one clip."""
     lines = _group_words_into_lines(words, clip_start, clip_end)
     events: list[str] = []
+    clip_len = max(0.5, clip_end - clip_start)
 
-    for line_words in lines:
+    for idx, line_words in enumerate(lines):
         line_start = line_words[0]["start"]
-        line_end = line_words[-1]["end"] + 0.12
+        natural_end = line_words[-1]["end"] + 0.10
+
+        if idx + 1 < len(lines):
+            next_start = lines[idx + 1][0]["start"]
+            # NEVER live past the next line's first appearance — this is the
+            # fix for captions stacking on top of each other.
+            line_end = min(natural_end, next_start)
+            if line_end - line_start < 0.12:
+                line_end = min(line_start + 0.12, next_start)
+        else:
+            line_end = min(natural_end + 0.15, clip_len)
+
         if line_end <= line_start:
             continue
 
-        # Line animation: quick fade in + scale pop.
-        parts = ["{\\fad(60,50)\\fscx70\\fscy70\\t(0,170,\\fscx112\\fscy112)\\t(170,320,\\fscx100\\fscy100)}"]
-        for word in line_words:
-            duration_cs = max(1, int(round((word["end"] - word["start"]) * 100)))
+        # Karaoke slots: each word owns the time until the NEXT word starts,
+        # so the yellow highlight lands exactly when that word is spoken
+        # (no more mid-word lag when people talk with gaps).
+        parts = ["{\\fad(50,40)\\fscx70\\fscy70\\t(0,160,\\fscx112\\fscy112)\\t(160,300,\\fscx100\\fscy100)}"]
+        n = len(line_words)
+        for i, word in enumerate(line_words):
+            if i < n - 1:
+                slot = line_words[i + 1]["start"] - word["start"]
+            else:
+                slot = line_end - word["start"]
+            duration_cs = max(1, int(round(slot * 100)))
             clean = word["word"].upper().replace("{", "(").replace("}", ")")
-            # \\kf = karaoke fill: the word fills with the accent color as it is spoken.
             parts.append(f"{{\\kf{duration_cs}}}{clean} ")
 
         events.append(
@@ -85,7 +119,7 @@ def build_ass_captions(words: list[dict], clip_start: float, clip_end: float, ou
     if not events:
         # No words found: still create a valid (empty) file so FFmpeg doesn't crash.
         events.append(
-            f"Dialogue: 0,{_timestamp(0)},{_timestamp(max(1.0, clip_end - clip_start))},Caption,,0,0,0,, "
+            f"Dialogue: 0,{_timestamp(0)},{_timestamp(max(1.0, clip_len))},Caption,,0,0,0,, "
         )
 
     with open(out_path, "w", encoding="utf-8") as f:
