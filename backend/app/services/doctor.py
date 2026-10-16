@@ -180,6 +180,36 @@ def quick_checks() -> dict:
     except Exception as exc:
         out["job_worker"] = f"FAIL: {str(exc)[:120]}"
 
+    # recent job failures = THE thing users care about most
+    try:
+        from datetime import datetime, timedelta, timezone
+
+        rows = (
+            get_admin()
+            .table("jobs")
+            .select("id,source_filename,error,created_at")
+            .eq("status", "failed")
+            .limit(10)
+            .execute()
+            .data
+            or []
+        )
+        limit = datetime.now(timezone.utc) - timedelta(minutes=45)
+        recent = []
+        for r in rows:
+            name = str(r.get("source_filename") or "")
+            if name.startswith("⚠️ System check"):
+                continue
+            try:
+                when = datetime.fromisoformat(str(r.get("created_at")).replace("Z", "+00:00"))
+            except Exception:
+                continue
+            if when >= limit:
+                recent.append(f"{name[:30]}: {str(r.get('error') or '')[:80]}")
+        out["job_failures"] = "ok" if not recent else "FAIL: " + " | ".join(recent[:2])
+    except Exception as exc:
+        out["job_failures"] = f"FAIL: watcher error {str(exc)[:100]}"
+
     # AI brain (Groq) — one tiny word
     try:
         from app.services.ai import chat_model, make_ai_client
@@ -232,9 +262,27 @@ def deep_canary() -> dict:
         video_processor.cut_and_concat(src, [(0, 4)], out, video_chain=chain, ass_path=ass)
         info = video_processor.probe_video(out)
         w, h = int(info.get("width") or 0), int(info.get("height") or 0)
-        if (w, h) == (720, 1280):
-            return {"render_pipeline": "ok"}
-        return {"render_pipeline": f"FAIL: output is {w}x{h}, expected 720x1280"}
+        result = {"render_pipeline": "ok" if (w, h) == (720, 1280) else f"FAIL: output is {w}x{h}, expected 720x1280"}
+        # --- code-path canary: run the REAL highlight picker on a fake transcript ---
+        try:
+            from app.services.highlights import detect_highlights
+
+            fake = {
+                "segments": [
+                    {"start": 0.0, "end": 2.0, "text": "I never thought this would happen."},
+                    {"start": 2.0, "end": 4.5, "text": "But then everything changed in one day."},
+                    {"start": 4.5, "end": 8.0, "text": "And honestly, I would do it all again."},
+                ]
+            }
+            picks = detect_highlights(fake, 8.0, n=2)
+            result["ai_pipeline"] = "ok" if picks else "FAIL: no clips picked"
+            for c in picks:
+                if c["end"] <= c["start"]:
+                    result["ai_pipeline"] = "FAIL: invalid clip window"
+                    break
+        except Exception as exc:
+            result["ai_pipeline"] = f"FAIL: {str(exc)[:160]}"
+        return result
     except Exception as exc:
         return {"render_pipeline": f"FAIL: {str(exc)[:160]}"}
     finally:

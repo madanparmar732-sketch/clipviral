@@ -211,7 +211,7 @@ def _ask_ai(client, system_prompt: str, user_prompt: str) -> list[dict]:
     return out
 
 
-def _snap_to_sentences(clips: list[dict], segments: list[dict]) -> list[dict]:
+def _snap_to_sentences(clips: list[dict], segments: list[dict], duration: float) -> list[dict]:
     """Move each clip's edges to sentence/segment boundaries — never cut mid-word."""
     if not segments:
         return clips
@@ -282,5 +282,5 @@ def detect_highlights(transcript: dict, duration: float, n: int | None = None) -
         if all(clip["end"] <= k["start"] + 1 or clip["start"] >= k["end"] - 1 for k in kept):
             kept.append(clip)
     kept.sort(key=lambda c: c["start"])
-    kept = _snap_to_sentences(kept, segments)
+    kept = _snap_to_sentences(kept, segments, duration)
     return kept[:n]
