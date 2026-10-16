@@ -15,6 +15,12 @@ from app.supabase_client import get_admin
 router = APIRouter()
 
 
+def _admin_auth():
+    """Supabase admin API — lives under auth.admin in newer clients."""
+    auth = get_admin().auth
+    return getattr(auth, "admin", auth)
+
+
 def read_prefs(user) -> dict:
     meta = getattr(user, "user_metadata", None) or {}
     return {
@@ -93,7 +99,7 @@ def save_prefs(payload: PrefsRequest, user=Depends(get_current_user)):
             raise HTTPException(status_code=402, detail="Dub captions is a Pro feature.")
         meta["dub"] = payload.dub
 
-    get_admin().auth.update_user_by_id(user.id, {"user_metadata": meta})
+    _admin_auth().update_user_by_id(user.id, {"user_metadata": meta})
     return {"ok": True}
 
 
@@ -110,5 +116,5 @@ def redeem_code(payload: RedeemRequest, user=Depends(get_current_user)):
     meta = dict(getattr(user, "user_metadata", None) or {})
     meta["is_pro"] = True
     meta["plan"] = "pro"
-    get_admin().auth.update_user_by_id(user.id, {"user_metadata": meta})
+    _admin_auth().update_user_by_id(user.id, {"user_metadata": meta})
     return {"ok": True, "message": "Welcome to ClipViral Pro! 🎉 All 20 styles, no watermark, priority speed."}

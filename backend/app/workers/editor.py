@@ -131,7 +131,8 @@ def pro_edit_clip_job(clip_id: str, opts: dict) -> None:
         prefs = {"reframe": "face"}
         if user_id:
             try:
-                res = admin.auth.get_user_by_id(user_id)
+                _auth = admin.auth
+                res = getattr(_auth, "admin", _auth).get_user_by_id(user_id)
                 u = getattr(res, "user", res)
                 meta = getattr(u, "user_metadata", None) or {}
                 is_pro = bool(meta.get("is_pro", False))

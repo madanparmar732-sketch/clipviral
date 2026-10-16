@@ -31,6 +31,20 @@ export type Job = {
   clips: Clip[];
 };
 
+
+/** fetch with retry — flaky mobile networks / sleeping server should never show
+ *  raw "Failed to fetch" to the user. */
+async function fetchWithRetry(url: string, init: RequestInit, tries = 2): Promise<Response> {
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fetch(url, init);
+    } catch {
+      await new Promise((r) => setTimeout(r, 1200));
+    }
+  }
+  throw new Error("Network problem — internet check karke dobara try karo (server 1 min me jag jayega).");
+}
+
 function authHeaders(token: string): HeadersInit {
   return { Authorization: `Bearer ${token}` };
 }
@@ -180,7 +194,7 @@ export type Account = {
 };
 
 export async function getAccount(token: string): Promise<Account> {
-  const res = await fetch(`${API_URL}/api/account`, { headers: authHeaders(token), cache: "no-store" });
+  const res = await fetchWithRetry(`${API_URL}/api/account`, { headers: authHeaders(token), cache: "no-store" });
   if (!res.ok) throw new Error(`Could not load account (HTTP ${res.status})`);
   return res.json();
 }
@@ -188,7 +202,7 @@ export async function getAccount(token: string): Promise<Account> {
 export async function savePrefs(token: string, prefs: Partial<{
   caption_style: string; sfx: boolean; enhance: boolean; reframe: string; dub: string;
 }>): Promise<void> {
-  const res = await fetch(`${API_URL}/api/account/prefs`, {
+  const res = await fetchWithRetry(`${API_URL}/api/account/prefs`, {
     method: "POST",
     headers: { ...authHeaders(token), "Content-Type": "application/json" },
     body: JSON.stringify(prefs),
@@ -199,7 +213,7 @@ export async function savePrefs(token: string, prefs: Partial<{
 }
 
 export async function redeemCode(token: string, code: string): Promise<{ message: string }> {
-  const res = await fetch(`${API_URL}/api/account/redeem`, {
+  const res = await fetchWithRetry(`${API_URL}/api/account/redeem`, {
     method: "POST",
     headers: { ...authHeaders(token), "Content-Type": "application/json" },
     body: JSON.stringify({ code }),
@@ -215,7 +229,7 @@ export async function proEditClip(
   clipId: string,
   opts: { style?: string; trim_start?: number; trim_end?: number; enhance?: boolean; sfx?: boolean; reframe?: string }
 ): Promise<{ ok: boolean; message: string }> {
-  const res = await fetch(`${API_URL}/api/clips/${clipId}/pro-edit`, {
+  const res = await fetchWithRetry(`${API_URL}/api/clips/${clipId}/pro-edit`, {
     method: "POST",
     headers: { ...authHeaders(token), "Content-Type": "application/json" },
     body: JSON.stringify(opts),
@@ -227,7 +241,7 @@ export async function proEditClip(
 }
 
 export async function scriptToVideo(token: string, script: string, style: string): Promise<{ job: Job }> {
-  const res = await fetch(`${API_URL}/api/videos/from-script`, {
+  const res = await fetchWithRetry(`${API_URL}/api/videos/from-script`, {
     method: "POST",
     headers: { ...authHeaders(token), "Content-Type": "application/json" },
     body: JSON.stringify({ script, style }),

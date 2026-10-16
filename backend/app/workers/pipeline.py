@@ -48,7 +48,8 @@ def _user_prefs(user_id: str) -> dict:
 
     prefs = {"is_pro": False, "caption_style": "beast", "sfx": False, "enhance": False, "reframe": "face"}
     try:
-        res = get_admin().auth.get_user_by_id(user_id)
+        _auth = get_admin().auth
+        res = getattr(_auth, "admin", _auth).get_user_by_id(user_id)
         user = getattr(res, "user", res)
         meta = (getattr(user, "user_metadata", None) or {}) if user else {}
         for key in prefs:
