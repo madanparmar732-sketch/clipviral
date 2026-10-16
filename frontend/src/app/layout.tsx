@@ -42,6 +42,9 @@ export const metadata: Metadata = {
     description: "Turn long videos into viral 9:16 short clips with animated captions — automatically. Free AI video clipper.",
     images: ["/og-cover.jpg"],
   },
+  verification: {
+    google: "vc6vLygvBzxrNHMachenIJL7NsiAsZolCVKPOSFdSkA",
+  },
   robots: {
     index: true,
     follow: true,
