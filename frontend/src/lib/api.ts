@@ -1,0 +1,123 @@
+/**
+ * Tiny helper library for talking to our FastAPI backend.
+ * All functions need the Supabase login token so the API knows WHO you are.
+ */
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+export type Clip = {
+  id: string;
+  job_id: string;
+  title?: string | null;
+  hook?: string | null;
+  score?: number;
+  start_seconds?: number;
+  end_seconds?: number;
+  video_url?: string | null;
+  thumbnail_url?: string | null;
+  hashtags?: string[];
+};
+
+export type Job = {
+  id: string;
+  status: "queued" | "processing" | "completed" | "failed" | string;
+  stage?: string | null;
+  progress?: number;
+  source_filename?: string | null;
+  duration_seconds?: number;
+  error?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  clips: Clip[];
+};
+
+function authHeaders(token: string): HeadersInit {
+  return { Authorization: `Bearer ${token}` };
+}
+
+/** Upload a video with progress updates (uses XHR so we can show a progress bar). */
+export function uploadVideo(
+  file: File,
+  token: string,
+  onProgress: (percent: number) => void
+): Promise<{ job: Job }> {
+  return new Promise((resolve, reject) => {
+    const form = new FormData();
+    form.append("file", file);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_URL}/api/videos/upload`);
+    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      try {
+        const body = JSON.parse(xhr.responseText || "{}");
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(body);
+        } else {
+          reject(new Error(body.detail ?? `Upload failed (HTTP ${xhr.status})`));
+        }
+      } catch {
+        reject(new Error("Upload failed: unreadable server response."));
+      }
+    };
+
+    xhr.onerror = () =>
+      reject(
+        new Error(
+          "Upload failed: cannot reach the API server. Is the backend running?"
+        )
+      );
+
+    xhr.send(form);
+  });
+}
+
+export async function listJobs(token: string): Promise<Job[]> {
+  const res = await fetch(`${API_URL}/api/jobs`, {
+    headers: authHeaders(token),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Could not load jobs (HTTP ${res.status})`);
+  const body = await res.json();
+  return body.jobs ?? [];
+}
+
+export async function getJob(token: string, jobId: string): Promise<Job> {
+  const res = await fetch(`${API_URL}/api/jobs/${jobId}`, {
+    headers: authHeaders(token),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Could not load job (HTTP ${res.status})`);
+  const body = await res.json();
+  return body.job;
+}
+
+export function downloadUrl(clipId: string): string {
+  return `${API_URL}/api/clips/${clipId}/download`;
+}
+
+/** Open a clip download in a new tab, carrying the login token as a one-time code in the URL is
+ *  not possible with plain links, so we fetch with the token and save the blob instead. */
+export async function downloadClip(clip: Clip, token: string) {
+  const res = await fetch(downloadUrl(clip.id), {
+    headers: authHeaders(token),
+    redirect: "follow",
+  });
+  if (!res.ok) throw new Error(`Download failed (HTTP ${res.status})`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${(clip.title ?? "clip").replace(/[^\w\- ]+/g, "").slice(0, 60).trim() || "clip"}.mp4`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
