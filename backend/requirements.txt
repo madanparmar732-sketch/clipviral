@@ -11,5 +11,7 @@ moviepy==1.0.3
 numpy==1.26.4
 Pillow==10.4.0
 opencv-python-headless==4.10.0.84
-# Keep yt-dlp recent — video sites change often and old versions stop working.
-yt-dlp>=2025.1.1
+# Keep yt-dlp PINNED TO A CURRENT VERSION — video sites change often and old
+# versions stop working (YouTube bot-walls stale players). Changing this line
+# also busts Docker's pip cache so Render always installs the fresh version.
+yt-dlp==2026.8.19

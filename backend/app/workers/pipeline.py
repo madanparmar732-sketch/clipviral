@@ -213,16 +213,19 @@ def run_pipeline(job_id: str, source_path: str) -> None:
 
 
 def _cdn_fallback(url: str, workdir: str) -> dict | None:
-    """When yt-dlp downloads an empty file (X/Twitter bot-wall), resolve the
-    direct CDN mp4 URL and download it like a browser. Returns fetch_video-style dict."""
+    """When yt-dlp downloads an empty file (X/Twitter bot-wall) or every player
+    disguise gets 'not a bot'-walled (YouTube), resolve the direct CDN mp4 URL
+    and download it like a browser would. Returns fetch_video-style dict."""
     try:
         import subprocess
         import urllib.request
 
-        res = subprocess.run(
-            ["yt-dlp", "--no-warnings", "--get-url", "-f", "best[height<=720]", url],
-            capture_output=True, text=True, timeout=90,
-        )
+        is_youtube = any(h in url for h in ("youtube.com", "youtu.be", "youtube-nocookie.com"))
+        cmd = ["yt-dlp", "--no-warnings", "--get-url", "-f", "best[height<=720]/best", url]
+        if is_youtube:
+            # the android player API is the disguise that most often slips past
+            cmd += ["--extractor-args", "youtube:player_client=android"]
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
         links = [ln.strip() for ln in (res.stdout or "").splitlines() if ln.strip().startswith("http")]
         if not links:
             return None
@@ -230,7 +233,7 @@ def _cdn_fallback(url: str, workdir: str) -> dict | None:
             links[0],
             headers={
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
-                "Referer": "https://x.com/",
+                "Referer": "https://www.youtube.com/" if is_youtube else "https://x.com/",
             },
         )
         data = urllib.request.urlopen(req, timeout=180).read()
@@ -240,7 +243,12 @@ def _cdn_fallback(url: str, workdir: str) -> dict | None:
         with open(path, "wb") as fh:
             fh.write(data)
         info = video_processor.probe_video(path)
-        return {"path": path, "title": "X video", "size": len(data), "duration": info.get("duration")}
+        return {
+            "path": path,
+            "title": "YouTube video" if is_youtube else "X video",
+            "size": len(data),
+            "duration": info.get("duration"),
+        }
     except Exception:
         logger.exception("cdn fallback failed")
         return None

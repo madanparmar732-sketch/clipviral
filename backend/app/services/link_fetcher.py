@@ -119,28 +119,35 @@ def fetch_video(url: str, workdir: str, on_progress=None) -> dict:
             except OSError:
                 pass
 
-        opts = {
-            "format": _FORMAT,
-            "outtmpl": os.path.join(workdir, "source.%(ext)s"),
-            "merge_output_format": "mp4",
-            "noplaylist": True,
-            "max_filesize": MAX_LINK_BYTES,
-            "max_duration": MAX_LINK_SECONDS,
-            "quiet": True,
-            "no_warnings": True,
-            "progress_hooks": [hook],
-        }
-        if clients:
-            opts["extractor_args"] = {"youtube": {"player_client": clients}}
+        # Two format passes per disguise: first the pretty format, then ANY single
+        # file. Some disguises only carry a low-res muxed file — without the
+        # fallback yt-dlp says "Requested format is not available" and we would
+        # skip a disguise that actually WORKS (hit this with ios/mweb).
+        for fmt in (_FORMAT, "b"):
+            opts = {
+                "format": fmt,
+                "outtmpl": os.path.join(workdir, "source.%(ext)s"),
+                "merge_output_format": "mp4",
+                "noplaylist": True,
+                "max_filesize": MAX_LINK_BYTES,
+                "max_duration": MAX_LINK_SECONDS,
+                "quiet": True,
+                "no_warnings": True,
+                "progress_hooks": [hook],
+            }
+            if clients:
+                opts["extractor_args"] = {"youtube": {"player_client": clients}}
 
-        try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-            logger.info("Link fetch succeeded with disguise %r", name)
+            try:
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    info = ydl.extract_info(url, download=True)
+                logger.info("Link fetch succeeded with disguise %r fmt %r", name, fmt)
+                break
+            except Exception as exc:
+                last_err = exc
+                logger.warning("Link fetch disguise %r fmt %r failed: %s", name, fmt, str(exc)[:160])
+        if info is not None:
             break
-        except Exception as exc:
-            last_err = exc
-            logger.warning("Link fetch disguise %r failed: %s", name, str(exc)[:160])
 
     if info is None:
         raise RuntimeError(_human_error(last_err or Exception("unknown error")))
