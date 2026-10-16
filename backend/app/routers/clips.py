@@ -95,11 +95,35 @@ async def re_edit_clip(
     if not removed:
         raise HTTPException(status_code=400, detail="Select at least one word to remove.")
 
+    _editor_precheck(response.data[0])
     background_tasks.add_task(re_edit_clip_job, clip_id, removed)
     return {
         "ok": True,
         "message": "Re-cutting your clip — press Refresh in about a minute to see it.",
     }
+
+
+def _editor_precheck(clip: dict) -> None:
+    """Fail fast with a HUMAN message if this clip can't be re-rendered."""
+    from app.config import settings
+
+    sp = clip.get("storage_path")
+    job_id = clip.get("job_id")
+    if not sp or not job_id:
+        raise HTTPException(status_code=400, detail="This clip is too old for editing — please re-generate the clips for this video.")
+    bucket = get_admin().storage.from_(settings.clips_bucket)
+    names = [f.get("name") for f in (bucket.list(job_id, {"limit": 100}) or [])]
+    if "source.mp4" not in names:
+        raise HTTPException(status_code=400, detail="The original video was already cleaned up — please upload this video again to edit.")
+    try:
+        wraw = bucket.download(sp.rsplit(".", 1)[0] + ".words.json")
+        import json as _json
+
+        wmeta = _json.loads(wraw)
+    except Exception:
+        wmeta = {}
+    if "kept_segments" not in wmeta or "words" not in wmeta:
+        raise HTTPException(status_code=400, detail="This clip has no transcript data — please re-generate the clips for this video.")
 
 
 class ProEditRequest(BaseModel):
@@ -138,6 +162,7 @@ async def pro_edit_clip(
     if not response.data:
         raise HTTPException(status_code=404, detail="Clip not found.")
 
+    _editor_precheck(response.data[0])
     background_tasks.add_task(pro_edit_clip_job, clip_id, payload.dict())
     return {"ok": True, "message": "Re-rendering in full quality — press Refresh in about a minute."}
 
