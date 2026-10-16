@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { downloadClip, type Clip, type Job } from "@/lib/api";
+import ClipEditor from "@/components/clip-editor";
 import { formatDate, formatDuration } from "@/lib/utils";
 
 function statusBadge(status: string) {
@@ -174,6 +175,8 @@ export default function JobCard({ job, token }: { job: Job; token: string }) {
                       </>
                     )}
                   </Button>
+
+                  <ClipEditor clip={clip} token={token} />
                 </div>
               </div>
             ))}

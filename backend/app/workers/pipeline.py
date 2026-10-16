@@ -8,6 +8,7 @@ Order of magic tricks:
 5. Clips + thumbnails are uploaded to Supabase Storage; links saved to the database.
 """
 
+import json
 import logging
 import os
 import shutil
@@ -96,14 +97,42 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
             ass_path = os.path.join(workdir, f"clip_{index + 1}.ass")
             clip_path = os.path.join(workdir, f"clip_{index + 1}.mp4")
             thumb_path = os.path.join(workdir, f"clip_{index + 1}.jpg")
+            words_path = os.path.join(workdir, f"clip_{index + 1}.words.json")
 
-            captions.build_ass_captions(
-                transcript["words"], clip["start"], clip["end"], ass_path
+            # ---- AUTOMATIC PAUSE-REMOVAL: dead air gets cut out ----
+            try:
+                silences = video_processor.detect_silences(source_path, clip["start"], clip["end"])
+            except Exception:
+                silences = []
+            kept_segments = video_processor.build_kept_segments(clip["start"], clip["end"], silences)
+
+            # Captions follow the NEW pause-free timeline
+            remapped = captions.remap_words(transcript["words"], kept_segments)
+            kept_len = sum(b - a for a, b in kept_segments)
+            captions.build_ass_captions(remapped, 0.0, max(1.0, kept_len), ass_path)
+
+            chain = video_processor.clip_video_chain(source_path, clip["start"], clip["end"])
+            video_processor.cut_and_concat(
+                source_path, kept_segments, clip_path,
+                video_chain=chain, ass_path=ass_path,
+                total_seconds=kept_len, on_progress=_clip_progress,
             )
-            video_processor.render_clip(
-                source_path, clip["start"], clip["end"], ass_path, clip_path,
-                on_progress=_clip_progress,
-            )
+
+            # Words JSON for the transcript-based editor
+            try:
+                with open(words_path, "w", encoding="utf-8") as wf:
+                    json.dump(
+                        {
+                            "clip_duration": round(kept_len, 3),
+                            "words": [
+                                {"start": round(w["start"], 3), "end": round(w["end"], 3), "word": w.get("word", "")}
+                                for w in remapped
+                            ],
+                        },
+                        wf,
+                    )
+            except Exception:
+                logger.exception("words json write failed (not fatal)")
             try:
                 video_processor.make_thumbnail(clip_path, thumb_path)
             except Exception:
@@ -117,6 +146,11 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
                 thumb_url = storage.upload_file_to_storage(
                     thumb_path, f"{job_id}/clip_{index + 1}.jpg"
                 )
+            if os.path.exists(words_path):
+                try:
+                    storage.upload_file_to_storage(words_path, f"{job_id}/clip_{index + 1}.words.json")
+                except Exception:
+                    logger.exception("words json upload failed (not fatal)")
 
             clip_row = {
                 "id": clip_id,
@@ -162,6 +196,14 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
                 logger.exception("Recap render failed (not fatal)")
 
         update_job(job_id, status="completed", stage="done", progress=100, error=None)
+
+        # Janitor: keep only the newest 4 videos per account, auto-delete older ones
+        try:
+            from app.services.janitor import cleanup_old_jobs
+            if user_id:
+                cleanup_old_jobs(user_id)
+        except Exception:
+            logger.exception("Janitor failed (not fatal)")
         logger.info("Job %s completed with %d clips", job_id, len(saved_clips))
 
     except Exception as exc:

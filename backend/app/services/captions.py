@@ -128,3 +128,30 @@ def build_ass_captions(words: list[dict], clip_start: float, clip_end: float, ou
         f.write("\n")
 
     return out_path
+
+
+def remap_words(words: list[dict], kept_segments: list[tuple[float, float]]) -> list[dict]:
+    """Rewrite absolute word timestamps onto the PAUSE-FREE timeline.
+
+    kept_segments are ABSOLUTE times (inside the source video) that survive the
+    pause-removal cuts. Words inside a kept segment get shifted so the first kept
+    second becomes t=0 and removed pauses disappear from the timeline.
+    Words that fall inside a removed pause are dropped.
+    """
+    remapped: list[dict] = []
+    offset = 0.0
+    for seg_a, seg_b in kept_segments:
+        seg_len = seg_b - seg_a
+        for w in words:
+            ws, we = float(w.get("start", 0)), float(w.get("end", 0))
+            if we <= seg_a or ws >= seg_b:
+                continue  # fully outside this kept segment
+            new_start = max(0.0, ws - seg_a) + offset
+            new_end = min(seg_len, we - seg_a) + offset
+            if new_end - new_start < 0.03:
+                continue
+            remapped.append(
+                {"start": round(new_start, 3), "end": round(new_end, 3), "word": w.get("word", "")}
+            )
+        offset += seg_len
+    return remapped

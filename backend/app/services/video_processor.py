@@ -248,3 +248,117 @@ def make_recap_moviepy(clip_paths: list[str], out_path: str) -> str:
             except Exception:
                 pass
     return out_path
+
+
+# ==================== PAUSE-REMOVAL + CUT ENGINE ====================
+
+def detect_silences(path: str, start: float, end: float,
+                    noise_db: float = -35.0, min_silence: float = 0.45) -> list[tuple[float, float]]:
+    """Find silent stretches inside [start, end] using ffmpeg's silencedetect."""
+    result = _run(
+        [
+            "ffmpeg", "-hide_banner",
+            "-ss", f"{start:.2f}", "-i", path, "-t", f"{max(0.1, end - start):.2f}",
+            "-af", f"silencedetect=noise={noise_db}dB:d={min_silence}",
+            "-f", "null", "-",
+        ]
+    )
+    silences: list[tuple[float, float]] = []
+    s_start = None
+    for line in (result.stderr or "").splitlines():
+        line = line.strip()
+        if "silence_start:" in line:
+            try:
+                s_start = float(line.split("silence_start:")[1].split()[0]) + start
+            except ValueError:
+                s_start = None
+        elif "silence_end:" in line and s_start is not None:
+            try:
+                s_end = float(line.split("silence_end:")[1].split()[0].rstrip("|")) + start
+                silences.append((s_start, s_end))
+            except ValueError:
+                pass
+            s_start = None
+    return silences
+
+
+def build_kept_segments(start: float, end: float, silences: list[tuple[float, float]],
+                        pad: float = 0.12, min_keep: float = 0.22) -> list[tuple[float, float]]:
+    """Complement of the silences = the parts we KEEP. Padding keeps a breath
+    so words never get clipped mid-syllable."""
+    cuts = sorted((max(start, s - pad), min(end, e + pad)) for s, e in silences)
+    kept: list[tuple[float, float]] = []
+    cursor = start
+    for s, e in cuts:
+        if s - cursor >= min_keep:
+            kept.append((cursor, min(s, end)))
+        cursor = max(cursor, e)
+        if cursor >= end:
+            break
+    if end - cursor >= min_keep:
+        kept.append((cursor, end))
+    if not kept:
+        kept = [(start, end)]
+    return kept
+
+
+def cut_and_concat(source_path: str, segments: list[tuple[float, float]], out_path: str,
+                   video_chain: str = "", ass_path: str | None = None,
+                   total_seconds: float | None = None, on_progress=None) -> str:
+    """Cut the listed time ranges out of the source and glue them into ONE video.
+
+    - video_chain: extra per-segment video filters (crop/scale) for fresh renders.
+    - ass_path: burn captions AFTER gluing (None = captions already in the file).
+    Used both by the pause-removal pipeline and the transcript editor.
+    """
+    segments = [(a, b) for a, b in segments if b - a > 0.05]
+    if not segments:
+        raise RuntimeError("Nothing left to render after cutting.")
+    if len(segments) == 1 and not video_chain and not ass_path:
+        raise RuntimeError("Nothing to cut.")  # identical copy, pointless
+
+    parts_v, parts_a, labels = [], [], []
+    for i, (a, b) in enumerate(segments):
+        vf = f"trim=start={a:.3f}:end={b:.3f},setpts=PTS-STARTPTS"
+        if video_chain:
+            vf += "," + video_chain
+        parts_v.append(f"[0:v]{vf}[v{i}]")
+        parts_a.append(f"[0:a]atrim=start={a:.3f}:end={b:.3f},asetpts=PTS-STARTPTS[a{i}]")
+        labels.append(f"[v{i}][a{i}]")
+
+    concat_in = "".join(labels)
+    fc = ";".join(parts_v + parts_a) + f";{concat_in}concat=n={len(segments)}:v=1:a=1[vc][ac]"
+
+    if ass_path:
+        ass_abs = os.path.abspath(ass_path).replace("\\", "/")
+        fc += f";[vc]ass='{ass_abs}',format=yuv420p[vo]"
+        vout = "[vo]"
+    else:
+        fc += ";[vc]format=yuv420p[vo]"
+        vout = "[vo]"
+
+    command = [
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+        "-i", source_path,
+        "-filter_complex", fc,
+        "-map", vout, "-map", "[ac]",
+        "-threads", "1",
+        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+        "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
+        "-movflags", "+faststart",
+    ]
+
+    if on_progress is None:
+        _run(command + [out_path])
+    else:
+        total = total_seconds or sum(b - a for a, b in segments)
+        _run_progress(command + ["-progress", "pipe:1", "-nostats", out_path], total, on_progress)
+    return out_path
+
+
+def clip_video_chain(source_path: str, start: float, end: float) -> str:
+    """The crop/scale filter chain for one clip (face-aware crop, 9:16 output)."""
+    info = probe_video(source_path)
+    crop_w, crop_h, _cx, y = _crop_geometry(info["width"], info["height"])
+    x = _smart_crop_x(source_path, start, end, info["width"], info["height"], crop_w)
+    return f"crop={crop_w}:{crop_h}:{x}:{y},scale=720:1280:flags=bilinear,setsar=1"

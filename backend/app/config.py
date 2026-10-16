@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     top_n_clips: int = 3
     clip_min_seconds: int = 15
     clip_max_seconds: int = 55  # shorter = much faster renders + better for shorts
+    # Keep only the newest N videos per account; older ones are auto-deleted.
+    max_videos_per_account: int = 4
 
     # Extra "recap reel" made with MoviePy (needs more RAM, off by default)
     recap_enabled: bool = False

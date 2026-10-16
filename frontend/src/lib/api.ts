@@ -103,6 +103,23 @@ export async function keepApiWarm(): Promise<void> {
   }
 }
 
+/** Transcript editor: re-cut a clip with chosen time ranges removed. */
+export async function reEditClip(
+  clipId: string,
+  removed: [number, number][],
+  token: string
+): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`${API_URL}/api/clips/${clipId}/re-edit`, {
+    method: "POST",
+    headers: { ...authHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ removed }),
+    cache: "no-store",
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.detail ?? `Re-cut failed (HTTP ${res.status})`);
+  return body;
+}
+
 export async function listJobs(token: string): Promise<Job[]> {
   const res = await fetch(`${API_URL}/api/jobs`, {
     headers: authHeaders(token),
