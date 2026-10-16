@@ -34,6 +34,15 @@ _INFLIGHT: set[str] = set()
 _INFLIGHT_LOCK = threading.Lock()
 
 
+def update_job(job_id: str, **fields) -> None:
+    """Update a job row + touch updated_at (so watchers know it's alive)."""
+    try:
+        fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+        get_admin().table("jobs").update(fields).eq("id", job_id).execute()
+    except Exception:
+        logger.exception("Could not update job %s", job_id)
+
+
 def _mark_inflight(job_id: str) -> None:
     with _INFLIGHT_LOCK:
         _INFLIGHT.add(job_id)
@@ -45,12 +54,18 @@ def _unmark_inflight(job_id: str) -> None:
 
 
 def _queue_worker() -> None:
-    _recover_stuck()  # pick up anything a restart left behind
+    try:
+        _recover_stuck()  # pick up anything a restart left behind
+    except Exception:
+        logger.exception("recover sweep failed")
     while True:
         try:
             _prio, _seq, job_id, source_path = _TASKS.get(timeout=30)
         except _queue.Empty:
-            _recover_stuck()  # periodic sweep — nothing is ever stuck forever
+            try:
+                _recover_stuck()  # periodic sweep — nothing is ever stuck forever
+            except Exception:
+                logger.exception("recover sweep failed")
             continue
         try:
             _run_pipeline_unserialized(job_id, source_path)
@@ -365,9 +380,21 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
 
 def fetch_and_run(job_id: str, url: str) -> None:
     """Background task: fetch the video from the link, then run the normal pipeline."""
-    from app.services import link_fetcher
-
     _mark_inflight(job_id)
+    try:
+        _fetch_and_run_inner(job_id, url)
+    except Exception as exc:
+        logger.exception("fetch_and_run crashed for job %s", job_id)
+        try:
+            update_job(job_id, status="failed", stage="failed", error=f"Could not process that link: {str(exc)[:220]}")
+        except Exception:
+            pass
+    finally:
+        _unmark_inflight(job_id)
+
+
+def _fetch_and_run_inner(job_id: str, url: str) -> None:
+    from app.services import link_fetcher
 
     workdir = os.path.join(settings.media_dir, job_id)
     os.makedirs(workdir, exist_ok=True)
@@ -378,7 +405,6 @@ def fetch_and_run(job_id: str, url: str) -> None:
     try:
         if _is_cancelled(job_id):
             logger.info("Job %s was cancelled - stopping.", job_id)
-            _unmark_inflight(job_id)
             return
         update_job(job_id, status="processing", stage="fetching_link", progress=2)
         result = link_fetcher.fetch_video(url, workdir, on_progress=on_progress)
@@ -401,7 +427,6 @@ def fetch_and_run(job_id: str, url: str) -> None:
             error=f"Could not fetch that video link: {str(exc)[:220]}",
         )
         shutil.rmtree(workdir, ignore_errors=True)
-        _unmark_inflight(job_id)
         return
 
     try:
