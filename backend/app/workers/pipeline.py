@@ -471,7 +471,23 @@ def _fetch_and_run_inner(job_id: str, url: str) -> None:
             logger.info("Job %s was cancelled - stopping.", job_id)
             return
         update_job(job_id, status="processing", stage="fetching_link", progress=2)
-        result = link_fetcher.fetch_video(url, workdir, on_progress=on_progress)
+        # X/YouTube CDNs flake sometimes — ALWAYS retry before giving up.
+        result = None
+        last_exc: Exception | None = None
+        for attempt in range(3):
+            try:
+                cand = link_fetcher.fetch_video(url, workdir, on_progress=on_progress)
+                if cand and float(cand.get("size") or 0) > 2048:
+                    result = cand
+                    break
+                last_exc = RuntimeError("The downloaded file is empty (site hiccup)")
+                update_job(job_id, stage="fetching_link", progress=max(2, 6 * (attempt + 1)))
+            except Exception as exc:
+                last_exc = exc
+                update_job(job_id, stage="fetching_link", progress=max(2, 6 * (attempt + 1)))
+            time.sleep(3 * (attempt + 1))
+        if result is None:
+            raise last_exc or RuntimeError("Could not fetch that video link")
         fields = {
             "stage": "link_fetched",
             "progress": 22,
