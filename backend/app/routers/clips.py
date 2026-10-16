@@ -233,3 +233,19 @@ async def proxy_video(url: str, request: Request):
             "Cache-Control": "public, max-age=3600",
         },
     )
+
+
+# ---------------- Self-Doctor: public health endpoint ----------------
+@router.get("/api/health")
+def api_health():
+    """Live system report. Also runs auto-fixes every time it is called."""
+    from app.services import doctor
+
+    fixes = doctor.auto_fixes()
+    checks = doctor.quick_checks()
+    bad = {k: v for k, v in checks.items() if isinstance(v, str) and v.startswith("FAIL")}
+    try:
+        doctor._report(checks, fixes)
+    except Exception:
+        pass
+    return {"ok": not bad, "checks": checks, "fixed_now": fixes, "time": doctor._now_iso()}

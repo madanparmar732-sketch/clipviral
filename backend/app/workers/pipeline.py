@@ -103,12 +103,18 @@ _SWEEPER_STARTED = threading.Event()
 
 
 def _sweeper_loop() -> None:
-    """Independent watchdog thread: sweeps + keeps the worker alive. Dies never."""
+    """Independent watchdog thread: sweeps + keeps the worker alive + runs the Self-Doctor."""
     while True:
         try:
             time.sleep(25)
             recover_stuck_safe()
             ensure_worker_started()
+            try:
+                from app.services.doctor import tick as doctor_tick
+
+                doctor_tick()
+            except Exception:
+                logger.exception("doctor tick failed")
         except Exception:
             logger.exception("sweeper iteration failed")
 

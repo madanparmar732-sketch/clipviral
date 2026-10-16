@@ -13,6 +13,7 @@ import AdSlot from "@/components/ad-slot";
 
 export default function DashboardClient({ userEmail }: { userEmail: string }) {
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [health, setHealth] = useState<{ ok: boolean; checks: Record<string, string>; fixed_now: string[] } | null>(null);
   const [token, setToken] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState<Account | null>(null);
@@ -35,6 +36,18 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
   }, [token]);
 
   // 1) Get the login token once.
+  useEffect(() => {
+    const base = process.env.NEXT_PUBLIC_API_URL || "https://clipviral-r5m1.onrender.com";
+    const loadHealth = () =>
+      fetch(`${base}/api/health`)
+        .then((r) => r.json())
+        .then(setHealth)
+        .catch(() => {});
+    loadHealth();
+    const t = setInterval(loadHealth, 120000);
+    return () => clearInterval(t);
+  }, []);
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data }) => {
@@ -90,6 +103,17 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
           {account && (
             <span className={"rounded-full px-3 py-1 text-xs font-semibold " + (account.plan === "pro" ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/15 text-amber-300")}>
               {account.plan === "pro" ? "⭐ PRO" : `FREE — ${account.videos_used_this_month}/${account.videos_limit ?? "∞"} videos`}
+            </span>
+          )}
+          {health && (
+            <span
+              className={
+                "rounded-full px-3 py-1 text-xs font-semibold " +
+                (health.ok ? "bg-emerald-500/20 text-emerald-300" : "bg-red-500/20 text-red-300")
+              }
+              title={Object.entries(health.checks).map(([k, v]) => `${k}: ${v}`).join("\n")}
+            >
+              {health.ok ? "🟢 All systems OK" : `🔴 ${Object.entries(health.checks).filter(([, v]) => String(v).startsWith("FAIL")).map(([k]) => k).join(", ")}`}
             </span>
           )}
           <Button variant="outline" size="sm" onClick={() => refresh()} disabled={loading}>
