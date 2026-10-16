@@ -215,6 +215,7 @@ def detect_highlights(transcript: dict, duration: float, n: int | None = None) -
     """Ask the AI for the top viral moments. Smart fallback if the AI is unreachable."""
     segments = transcript.get("segments") or []
     n = n or settings.top_n_clips
+    n = max(2, min(n, int(duration / 45) or 2))  # ~one clip per 45s of video (no overlapping junk)
 
     if not segments or duration <= 0:
         return []

@@ -30,12 +30,14 @@ import queue as _queue
 _TASKS: "_queue.PriorityQueue" = _queue.PriorityQueue()
 _WORKER_STARTED = threading.Event()
 _WORKER_GUARD = threading.Lock()
-_INFLIGHT: set[str] = set()
+_INFLIGHT: dict[str, float] = {}          # job_id -> last proof-of-life time
 _INFLIGHT_LOCK = threading.Lock()
+_RECOVER_LOCK = threading.Lock()
 
 
 def update_job(job_id: str, **fields) -> None:
     """Update a job row + touch updated_at (so watchers know it's alive)."""
+    _mark_inflight(job_id)  # proof of life: keeps the recover stamp fresh
     try:
         fields["updated_at"] = datetime.now(timezone.utc).isoformat()
         get_admin().table("jobs").update(fields).eq("id", job_id).execute()
@@ -45,27 +47,37 @@ def update_job(job_id: str, **fields) -> None:
 
 def _mark_inflight(job_id: str) -> None:
     with _INFLIGHT_LOCK:
-        _INFLIGHT.add(job_id)
+        _INFLIGHT[job_id] = time.time()
 
 
 def _unmark_inflight(job_id: str) -> None:
     with _INFLIGHT_LOCK:
-        _INFLIGHT.discard(job_id)
+        _INFLIGHT.pop(job_id, None)
+
+
+def _is_pending_in_queue(job_id: str) -> bool:
+    try:
+        return any(t[2] == job_id for t in _TASKS.queue)
+    except Exception:
+        return False
 
 
 def _queue_worker() -> None:
-    try:
-        _recover_stuck()  # pick up anything a restart left behind
-    except Exception:
-        logger.exception("recover sweep failed")
+    while True:  # IMMORTAL: any crash just restarts the loop
+        try:
+            _queue_worker_once()
+        except Exception:
+            logger.exception("queue worker crashed - restarting")
+            time.sleep(5)
+
+
+def _queue_worker_once() -> None:
+    recover_stuck_safe()
     while True:
         try:
-            _prio, _seq, job_id, source_path = _TASKS.get(timeout=30)
+            _prio, _seq, job_id, source_path = _TASKS.get(timeout=20)
         except _queue.Empty:
-            try:
-                _recover_stuck()  # periodic sweep — nothing is ever stuck forever
-            except Exception:
-                logger.exception("recover sweep failed")
+            recover_stuck_safe()  # periodic sweep — nothing is ever stuck forever
             continue
         try:
             _run_pipeline_unserialized(job_id, source_path)
@@ -75,6 +87,18 @@ def _queue_worker() -> None:
             _TASKS.task_done()
             _unmark_inflight(job_id)
             shutil.rmtree(os.path.dirname(source_path), ignore_errors=True)
+
+
+def recover_stuck_safe() -> None:
+    """Non-reentrant recovery sweep — safe to call from anywhere (API, worker, timers)."""
+    if not _RECOVER_LOCK.acquire(blocking=False):
+        return
+    try:
+        _recover_stuck()
+    except Exception:
+        logger.exception("recover sweep failed")
+    finally:
+        _RECOVER_LOCK.release()
 
 
 def ensure_worker_started() -> None:
@@ -106,9 +130,13 @@ def _recover_stuck() -> None:
         if not job_id:
             continue
         with _INFLIGHT_LOCK:
-            if job_id in _INFLIGHT:
+            last_seen = _INFLIGHT.get(job_id)
+            if last_seen is not None and (time.time() - last_seen) < 180:
+                continue  # alive right now — leave it alone
+            if _is_pending_in_queue(job_id):
+                _INFLIGHT[job_id] = time.time()  # waiting its turn, refresh stamp
                 continue
-            _INFLIGHT.add(job_id)  # reserve before enqueue
+            _INFLIGHT[job_id] = time.time()  # reserve before enqueue
         fn = row.get("source_filename") or ""
         url = fn.split("|||", 1)[1].strip() if "|||" in fn else ""
         if url.startswith("http"):

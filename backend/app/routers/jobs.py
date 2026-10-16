@@ -11,6 +11,12 @@ router = APIRouter()
 @router.get("/api/jobs")
 def list_jobs(user=Depends(get_current_user)):
     """All of this user's jobs, newest first, with their clips."""
+    try:
+        from app.workers.pipeline import recover_stuck_safe
+
+        recover_stuck_safe()  # dashboard opens = kick the queue (nothing stays stuck)
+    except Exception:
+        pass
     response = (
         get_admin()
         .table("jobs")
