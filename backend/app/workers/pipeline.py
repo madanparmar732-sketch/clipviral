@@ -100,6 +100,9 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
             logger.exception("source upload failed (not fatal)")
 
         # ---------- Step 1: measure the video ----------
+        if _is_cancelled(job_id):
+            logger.info("Job %s was cancelled - stopping.", job_id)
+            return
         update_job(job_id, status="processing", stage="measuring_video", progress=5)
         info = video_processor.probe_video(source_path)
         duration = info["duration"]
@@ -123,6 +126,9 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
         # ---------- Step 4 & 5: cut, caption, upload ----------
         saved_clips = []
         for index, clip in enumerate(clips):
+            if _is_cancelled(job_id):
+                logger.info("Job %s was cancelled mid-render - stopping.", job_id)
+                return
             update_job(
                 job_id,
                 stage=f"rendering_clip_{index + 1}_of_{len(clips)}",
@@ -298,6 +304,9 @@ def fetch_and_run(job_id: str, url: str) -> None:
         update_job(job_id, stage="fetching_link", progress=max(2, min(20, 2 + percent // 6)))
 
     try:
+        if _is_cancelled(job_id):
+            logger.info("Job %s was cancelled - stopping.", job_id)
+            return
         update_job(job_id, status="processing", stage="fetching_link", progress=2)
         result = link_fetcher.fetch_video(url, workdir, on_progress=on_progress)
         fields = {
@@ -325,3 +334,12 @@ def fetch_and_run(job_id: str, url: str) -> None:
         run_pipeline(job_id, result["path"])
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
+
+
+def _is_cancelled(job_id: str) -> bool:
+    """True if the user cancelled this job."""
+    try:
+        row = get_admin().table("jobs").select("status").eq("id", job_id).limit(1).execute().data
+        return bool(row and row[0].get("status") == "cancelled")
+    except Exception:
+        return False

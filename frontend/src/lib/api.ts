@@ -276,3 +276,13 @@ export async function updateClipMeta(
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.detail ?? `Could not save (HTTP ${res.status})`);
 }
+
+
+export async function cancelJob(token: string, jobId: string): Promise<{ ok: boolean }> {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://clipviral-r5m1.onrender.com"}/api/jobs/${jobId}/cancel`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error("Cancel failed");
+  return res.json();
+}

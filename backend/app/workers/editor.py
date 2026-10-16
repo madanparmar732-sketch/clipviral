@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 
 
 def re_edit_clip_job(clip_id: str, removed: list[tuple[float, float]]) -> None:
+    if _editor_cancelled(clip_id):
+        return
     admin = get_admin()
     clip_res = admin.table("clips").select("*").eq("id", clip_id).limit(1).execute()
     rows = clip_res.data or []
@@ -106,6 +108,8 @@ def re_edit_clip_job(clip_id: str, removed: list[tuple[float, float]]) -> None:
 
 
 def pro_edit_clip_job(clip_id: str, opts: dict) -> None:
+    if _editor_cancelled(clip_id):
+        return
     """Pro Editor: FULL re-render from the stored source — new caption style,
     trim, enhance, sfx, reframe — in original quality."""
     from app.services.captions import FREE_STYLES, build_ass_captions
@@ -305,3 +309,17 @@ def pro_edit_clip_job(clip_id: str, opts: dict) -> None:
             pass
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
+
+
+def _editor_cancelled(clip_id: str) -> bool:
+    """True if the parent job was cancelled by the user."""
+    try:
+        rows = get_admin().table("clips").select("job_id").eq("id", clip_id).limit(1).execute().data or []
+        if not rows:
+            return True
+        jrows = (
+            get_admin().table("jobs").select("status").eq("id", rows[0].get("job_id")).limit(1).execute().data or []
+        )
+        return bool(jrows and jrows[0].get("status") == "cancelled")
+    except Exception:
+        return False

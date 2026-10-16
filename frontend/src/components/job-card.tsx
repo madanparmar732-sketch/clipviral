@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Loader2, Sparkles } from "lucide-react";
+import { Download, Loader2, Sparkles, XCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { downloadClip, type Clip, type Job } from "@/lib/api";
+import { downloadClip, type Clip, type Job , cancelJob} from "@/lib/api";
 import Link from "next/link";
 import { Wand2 } from "lucide-react";
 import type { Account } from "@/lib/api";
@@ -25,6 +25,8 @@ function statusBadge(status: string) {
       return <Badge variant="success">Completed</Badge>;
     case "failed":
       return <Badge variant="destructive">Failed</Badge>;
+    case "cancelled":
+      return <Badge variant="outline">Cancelled</Badge>;
     case "processing":
       return <Badge variant="info">Processing</Badge>;
     default:
@@ -55,6 +57,7 @@ function stageLabel(stage?: string | null) {
 
 export default function JobCard({ job, token, account }: { job: Job; token: string; account?: Account | null }) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function download(clip: Clip) {
@@ -77,6 +80,22 @@ export default function JobCard({ job, token, account }: { job: Job; token: stri
             <CardTitle className="flex items-center gap-2">
               {job.source_filename ?? "Untitled video"}
               {statusBadge(job.status)}
+              {(job.status === "queued" || job.status === "processing") && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-red-500/40 text-red-300 hover:bg-red-500/10"
+                  disabled={cancelling}
+                  onClick={async () => {
+                    if (!window.confirm("Cancel this job? Processing will stop.")) return;
+                    setCancelling(true);
+                    try { await cancelJob(token, job.id); } catch {}
+                    setCancelling(false);
+                  }}
+                >
+                  <XCircle className="h-4 w-4" /> {cancelling ? "Cancelling…" : "Cancel"}
+                </Button>
+              )}
             </CardTitle>
             <CardDescription className="mt-1">
               {formatDate(job.created_at)}

@@ -45,3 +45,18 @@ def get_job(job_id: str, user=Depends(get_current_user)):
     job.setdefault("clips", [])
     job["clips"].sort(key=lambda c: c.get("score", 0), reverse=True)
     return {"job": job}
+
+
+@router.post("/api/jobs/{job_id}/cancel")
+def cancel_job(job_id: str, user=Depends(get_current_user)):
+    """Cancel a queued or running job. The worker stops at the next safe point."""
+    response = (
+        get_admin()
+        .table("jobs")
+        .update({"status": "cancelled", "stage": "cancelled"})
+        .eq("id", job_id)
+        .eq("user_id", user.id)
+        .in_("status", ["queued", "processing"])
+        .execute()
+    )
+    return {"ok": True, "cancelled": bool(response.data)}

@@ -24,7 +24,8 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
     if (!t) return;
     try {
       const data = await listJobs(t);
-      setJobs(data);
+      const rank = (st: string) => (st === "processing" || st === "queued" ? 0 : 1);
+      setJobs([...data].sort((a, b) => rank(a.status) - rank(b.status)));
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load jobs.");
