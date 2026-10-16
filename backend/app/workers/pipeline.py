@@ -212,6 +212,40 @@ def run_pipeline(job_id: str, source_path: str) -> None:
     threading.Thread(target=_run_guarded, args=(job_id, source_path), daemon=True).start()
 
 
+def _cdn_fallback(url: str, workdir: str) -> dict | None:
+    """When yt-dlp downloads an empty file (X/Twitter bot-wall), resolve the
+    direct CDN mp4 URL and download it like a browser. Returns fetch_video-style dict."""
+    try:
+        import subprocess
+        import urllib.request
+
+        res = subprocess.run(
+            ["yt-dlp", "--no-warnings", "--get-url", "-f", "best[height<=720]", url],
+            capture_output=True, text=True, timeout=90,
+        )
+        links = [ln.strip() for ln in (res.stdout or "").splitlines() if ln.strip().startswith("http")]
+        if not links:
+            return None
+        req = urllib.request.Request(
+            links[0],
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+                "Referer": "https://x.com/",
+            },
+        )
+        data = urllib.request.urlopen(req, timeout=180).read()
+        if len(data) < 2048:
+            return None
+        path = os.path.join(workdir, "source.mp4")
+        with open(path, "wb") as fh:
+            fh.write(data)
+        info = video_processor.probe_video(path)
+        return {"path": path, "title": "X video", "size": len(data), "duration": info.get("duration")}
+    except Exception:
+        logger.exception("cdn fallback failed")
+        return None
+
+
 def _run_guarded(job_id: str, source_path: str) -> None:
     """Run one job in this thread with heartbeat + crash-proofing."""
     _mark_inflight(job_id)
@@ -491,6 +525,11 @@ def _fetch_and_run_inner(job_id: str, url: str) -> None:
             except Exception as exc:
                 last_exc = exc
                 update_job(job_id, stage="fetching_link", progress=max(2, 6 * (attempt + 1)))
+            if result is None:
+                alt = _cdn_fallback(url, workdir)  # browser-style direct download
+                if alt:
+                    result = alt
+                    break
             time.sleep(3 * (attempt + 1))
         if result is None:
             raise last_exc or RuntimeError("Could not fetch that video link")
