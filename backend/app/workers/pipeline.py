@@ -79,26 +79,38 @@ def _queue_worker_once() -> None:
         except _queue.Empty:
             recover_stuck_safe()  # periodic sweep — nothing is ever stuck forever
             continue
-        try:
-            _run_pipeline_unserialized(job_id, source_path)
-        except Exception:
-            logger.exception("Pipeline crashed for job %s", job_id)
-        finally:
-            _TASKS.task_done()
-            _unmark_inflight(job_id)
-            shutil.rmtree(os.path.dirname(source_path), ignore_errors=True)
+        threading.Thread(target=_run_guarded, args=(job_id, source_path), daemon=True).start()
+
+
+_LAST_SWEEP = [0.0]
 
 
 def recover_stuck_safe() -> None:
-    """Non-reentrant recovery sweep — safe to call from anywhere (API, worker, timers)."""
-    if not _RECOVER_LOCK.acquire(blocking=False):
-        return
+    """Recovery sweep safe to call from anywhere (API, worker, timers).
+    Timestamp gate: a hung sweep can never block future ones."""
+    now = time.time()
+    with _INFLIGHT_LOCK:
+        if now - _LAST_SWEEP[0] < 12:
+            return
+        _LAST_SWEEP[0] = now
     try:
         _recover_stuck()
     except Exception:
         logger.exception("recover sweep failed")
-    finally:
-        _RECOVER_LOCK.release()
+
+
+_SWEEPER_STARTED = threading.Event()
+
+
+def _sweeper_loop() -> None:
+    """Independent watchdog thread: sweeps + keeps the worker alive. Dies never."""
+    while True:
+        try:
+            time.sleep(25)
+            recover_stuck_safe()
+            ensure_worker_started()
+        except Exception:
+            logger.exception("sweeper iteration failed")
 
 
 def ensure_worker_started() -> None:
@@ -106,6 +118,9 @@ def ensure_worker_started() -> None:
         if not _WORKER_STARTED.is_set():
             threading.Thread(target=_queue_worker, daemon=True).start()
             _WORKER_STARTED.set()
+        if not _SWEEPER_STARTED.is_set():
+            threading.Thread(target=_sweeper_loop, daemon=True).start()
+            _SWEEPER_STARTED.set()
 
 
 def _recover_stuck() -> None:
@@ -182,15 +197,30 @@ def run_pipeline(job_id: str, source_path: str) -> None:
     ensure_worker_started()
     _mark_inflight(job_id)
 
-    priority = 5
+    threading.Thread(target=_run_guarded, args=(job_id, source_path), daemon=True).start()
+
+
+def _run_guarded(job_id: str, source_path: str) -> None:
+    """Run one job in this thread with heartbeat + crash-proofing."""
+    _mark_inflight(job_id)
+    stop = threading.Event()
+
+    def _beat() -> None:
+        while not stop.wait(30):
+            _mark_inflight(job_id)  # proof of life during long transcriptions
+
+    threading.Thread(target=_beat, daemon=True).start()
     try:
-        job_res = get_admin().table("jobs").select("user_id").eq("id", job_id).limit(1).execute()
-        rows = job_res.data or []
-        if rows and _user_prefs(rows[0].get("user_id")).get("is_pro"):
-            priority = 1
-    except Exception:
-        pass
-    _TASKS.put((priority, time.monotonic(), job_id, source_path))
+        _run_pipeline_unserialized(job_id, source_path)
+    except Exception as exc:
+        logger.exception("Pipeline crashed for job %s", job_id)
+        try:
+            update_job(job_id, status="failed", stage="failed", error=f"Processing crashed: {str(exc)[:200]}")
+        except Exception:
+            pass
+    finally:
+        stop.set()
+        _unmark_inflight(job_id)
 
 
 def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
