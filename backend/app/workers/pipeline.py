@@ -125,6 +125,13 @@ def _sweeper_loop() -> None:
             logger.exception("sweeper iteration failed")
 
 
+def _render_skips(job_id: str) -> bool:
+    """True when the phone worker holds a fresh lease on this job."""
+    from app.services.lease import has_fresh_lease
+
+    return has_fresh_lease(job_id)
+
+
 def ensure_worker_started() -> None:
     with _WORKER_GUARD:
         if not _WORKER_STARTED.is_set():
@@ -152,10 +159,14 @@ def _recover_stuck() -> None:
         logger.exception("recover: could not list jobs")
         return
 
+    from app.services.lease import has_fresh_lease
+
     for row in rows:
         job_id = row.get("id")
         if not job_id:
             continue
+        if has_fresh_lease(job_id):
+            continue  # phone worker owns it — hands off
         with _INFLIGHT_LOCK:
             last_seen = _INFLIGHT.get(job_id)
             if last_seen is not None and (time.time() - last_seen) < 180:
@@ -255,6 +266,9 @@ def _cdn_fallback(url: str, workdir: str) -> dict | None:
 
 
 def _run_guarded(job_id: str, source_path: str) -> None:
+    if _render_skips(job_id):
+        logger.info("Job %s leased to the phone worker - render side skipping.", job_id)
+        return
     """Run one job in this thread with heartbeat + crash-proofing."""
     _mark_inflight(job_id)
     stop = threading.Event()
@@ -548,6 +562,9 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
 
 
 def fetch_and_run(job_id: str, url: str) -> None:
+    if _render_skips(job_id):
+        logger.info("Job %s leased to the phone worker - render side skipping.", job_id)
+        return
     """Background task: fetch the video from the link, then run the normal pipeline.
 
     A heartbeat keeps the inflight stamp FRESH for the whole fetch (multi-minute

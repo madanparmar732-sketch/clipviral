@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     # Comma-separated Pro activation codes (owner hands these out after payment)
     pro_codes: str = "CLIP-N28E-HCC7,CLIP-R635-UAAW,CLIP-E264-B49K,CLIP-XZYX-F65R,CLIP-ASYK-7DKY,CLIP-DHVV-2XVS,CLIP-SM47-3Z8S,CLIP-T3G3-G4E4,CLIP-CV77-4VYE,CLIP-ZTD4-8K67"
 
+    # When 1: this box SKIPS job execution — a Termux phone worker owns
+    # jobs instead (app/services/lease.py). Render dashboard env var CLIPVIRAL_PHONE_WORKER=1.
+    phone_worker: bool = False
+
     # Extra "recap reel" made with MoviePy (needs more RAM, off by default)
     recap_enabled: bool = False
 

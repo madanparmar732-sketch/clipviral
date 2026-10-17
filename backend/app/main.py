@@ -32,6 +32,9 @@ app = FastAPI(title=settings.app_name, version="1.0.0", lifespan=lifespan)
 @app.on_event("startup")
 def _boot_worker() -> None:
     """Start the job worker + recover anything a restart left queued."""
+    from app.config import settings as _s
+    if getattr(_s, "phone_worker", False):
+        return  # phone worker owns the jobs — Render is API-only
     try:
         from app.workers.pipeline import ensure_worker_started
 
