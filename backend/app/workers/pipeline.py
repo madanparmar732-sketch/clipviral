@@ -548,16 +548,22 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
 
 
 def fetch_and_run(job_id: str, url: str) -> None:
-    """Background task: fetch the video from the link, then run the normal pipeline."""
-    # ONE owner per job: the sweeper and the health auto-fix can both pick up a
-    # queued job seconds apart — two fetch loops = one deletes the other's file
-    # mid-run (bit us on 2026-10-17). First claimer wins, second exits clean.
-    with _INFLIGHT_LOCK:
-        last = _INFLIGHT.get(job_id)
-        if last is not None and time.time() - last < 120:
-            logger.info("fetch_and_run skipped — another run already owns job %s", job_id)
-            return
+    """Background task: fetch the video from the link, then run the normal pipeline.
+
+    A heartbeat keeps the inflight stamp FRESH for the whole fetch (multi-minute
+    retries included) — so a recovery sweep can never mistake this run for a
+    dead one and double-spawn it (double-spawn = one run deletes the other's
+    source file mid-flight; that bit us on 2026-10-17).
+    """
     _mark_inflight(job_id)
+    _fetch_stop = threading.Event()
+
+    def _fetch_beat() -> None:
+        while not _fetch_stop.wait(20):
+            _mark_inflight(job_id)
+
+    _hb = threading.Thread(target=_fetch_beat, daemon=True)
+    _hb.start()
     try:
         _fetch_and_run_inner(job_id, url)
     except Exception as exc:
@@ -567,6 +573,7 @@ def fetch_and_run(job_id: str, url: str) -> None:
         except Exception:
             pass
     finally:
+        _fetch_stop.set()
         _unmark_inflight(job_id)
 
 
