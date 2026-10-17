@@ -6,6 +6,8 @@ import { Inbox, RefreshCw } from "lucide-react";
 import JobCard from "@/components/job-card";
 import LinkImport from "@/components/link-import";
 import UploadDropzone from "@/components/upload-dropzone";
+import CreateOptions from "@/components/create-options";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { getAccount, listJobs, keepApiWarm, type Account, type Job } from "@/lib/api";
@@ -87,6 +89,7 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
             captions.
           </p>
         </div>
+        <CreateOptions />
         <UploadDropzone compact />
         {account?.plan !== "pro" && <AdSlot compact slot="dashboard-top" />}
         <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
@@ -95,6 +98,14 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
           <div className="h-px flex-1 bg-white/10" />
         </div>
         <LinkImport />
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <Link href="/scheduler" className="rounded-full border border-white/10 px-3 py-1.5 hover:bg-white/5">
+            📅 Scheduler & Collections
+          </Link>
+          <Link href="/settings/brand" className="rounded-full border border-white/10 px-3 py-1.5 hover:bg-white/5">
+            🎨 Brand kit
+          </Link>
+        </div>
       </section>
 
       <section>

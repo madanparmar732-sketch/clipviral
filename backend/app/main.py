@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routers import account as account_router
-from app.routers import clips, jobs, uploads
+from app.routers import clips, jobs, parity, uploads
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,6 +55,7 @@ app.include_router(account_router.router, tags=["account"])
 app.include_router(uploads.router, tags=["uploads"])
 app.include_router(jobs.router, tags=["jobs"])
 app.include_router(clips.router, tags=["clips"])
+app.include_router(parity.router, tags=["parity"])
 
 
 @app.get("/")

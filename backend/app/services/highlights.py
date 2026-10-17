@@ -66,7 +66,8 @@ EXAMPLE of great picks for a 10-minute interview:
 Output JSON only. No markdown, no commentary."""
 
 
-def _build_user_prompt(transcript_segments: list[dict], duration: float) -> str:
+def _build_user_prompt(transcript_segments: list[dict], duration: float, prefs: dict | None = None) -> str:
+    prefs = prefs or {}
     lines = []
     for seg in transcript_segments:
         text = (seg.get("text") or "").strip()
@@ -74,9 +75,25 @@ def _build_user_prompt(transcript_segments: list[dict], duration: float) -> str:
             continue
         lines.append(f"[{seg['start']:.1f}-{seg['end']:.1f}] {text}")
     body = "\n".join(lines)
+    extras = []
+    if prefs.get("genre"):
+        extras.append(f"Video genre: {prefs['genre']}.")
+    if prefs.get("topic_keywords"):
+        kw = ", ".join(str(k) for k in prefs["topic_keywords"][:8])
+        extras.append(f"IMPORTANT — prioritise moments about: {kw}.")
+    if prefs.get("custom_prompt"):
+        extras.append(f"User's custom instruction: {prefs['custom_prompt']}")
+    if prefs.get("clip_durations"):
+        try:
+            lo, hi = prefs["clip_durations"][0]
+            extras.append(f"Each clip must be between {int(lo)} and {int(hi)} seconds long.")
+        except Exception:
+            pass
+    extras_txt = ("\n" + "\n".join(extras) + "\n") if extras else ""
     return (
         f"Video duration: {duration:.1f} seconds.\n\n"
         f"Transcript:\n{body}\n\n"
+        f"{extras_txt}"
         f"Find the {settings.top_n_clips} most viral clips. Remember: JSON only, "
         f"hook-based starts, spread across the video."
     )
@@ -232,11 +249,31 @@ def _snap_to_sentences(clips: list[dict], segments: list[dict], duration: float)
     return clips
 
 
-def detect_highlights(transcript: dict, duration: float, n: int | None = None) -> list[dict]:
+def detect_highlights(transcript: dict, duration: float, n: int | None = None, prefs: dict | None = None) -> list[dict]:
     """Ask the AI for the top viral moments. Smart fallback if the AI is unreachable."""
+    prefs = prefs or {}
     segments = transcript.get("segments") or []
+    # OpusClip parity: range {startSec,endSec} — only curate inside that window
+    rng = prefs.get("range") or {}
+    try:
+        if rng.get("startSec") is not None or rng.get("endSec") is not None:
+            lo = float(rng.get("startSec") or 0)
+            hi = float(rng.get("endSec") or duration)
+            segments = [
+                s for s in segments
+                if float(s.get("end", 0)) > lo and float(s.get("start", 0)) < hi
+            ]
+            duration = max(1.0, hi - lo)
+    except Exception:
+        logger.exception("range filter failed — using full video")
     n = n or settings.top_n_clips
     n = max(2, min(n, int(duration / 40) or 2))  # ~one clip per 40s of video
+    clip_dur = None
+    try:
+        if prefs.get("clip_durations"):
+            clip_dur = (int(prefs["clip_durations"][0][0]), int(prefs["clip_durations"][0][1]))
+    except Exception:
+        clip_dur = None
 
     if not segments or duration <= 0:
         return []
@@ -245,11 +282,11 @@ def detect_highlights(transcript: dict, duration: float, n: int | None = None) -
     prompt = (
         SYSTEM_PROMPT
         .replace("{n}", str(n))
-        .replace("{min_s}", str(settings.clip_min_seconds))
-        .replace("{max_s}", str(settings.clip_max_seconds))
+        .replace("{min_s}", str(clip_dur[0] if clip_dur else settings.clip_min_seconds))
+        .replace("{max_s}", str(clip_dur[1] if clip_dur else settings.clip_max_seconds))
         .replace("{duration}", f"{duration:.1f}")
     )
-    user_prompt = _build_user_prompt(segments, duration)
+    user_prompt = _build_user_prompt(segments, duration, prefs=prefs)
 
     clips: list[dict] = []
     try:

@@ -58,6 +58,11 @@ export function uploadVideo(
   return new Promise((resolve, reject) => {
     const form = new FormData();
     form.append("file", file);
+    try {
+      form.append("options", JSON.stringify(getCreateOptions()));
+    } catch {
+      form.append("options", "{}");
+    }
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${API_URL}/api/videos/upload`);
@@ -95,10 +100,16 @@ export function uploadVideo(
 
 /** Ask the backend to fetch a video from a link (YouTube, Facebook, X, ...) and clip it. */
 export async function importFromLink(url: string, token: string): Promise<{ job: Job }> {
+  let options = {};
+  try {
+    options = getCreateOptions();
+  } catch {
+    options = {};
+  }
   const res = await fetch(`${API_URL}/api/videos/from-link`, {
     method: "POST",
     headers: { ...authHeaders(token), "Content-Type": "application/json" },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ url, options }),
     cache: "no-store",
   });
   const body = await res.json().catch(() => ({}));
@@ -286,3 +297,138 @@ export async function cancelJob(token: string, jobId: string): Promise<{ ok: boo
   if (!res.ok) throw new Error("Cancel failed");
   return res.json();
 }
+
+/* ============================ OPUSCLIP-PARITY API ============================ */
+
+export type CreateOptions = {
+  genre?: string;
+  topic_keywords?: string[];
+  custom_prompt?: string;
+  clip_durations?: [number, number][];
+  range?: { startSec?: number; endSec?: number };
+  aspect?: string;
+  remove_fillers?: boolean;
+  auto_censor?: boolean;
+  source_lang?: string;
+  webhook_url?: string;
+  caption_style?: string;
+  brand_kit_id?: string;
+};
+
+const OPTS_KEY = "clipviral_options";
+
+export function getCreateOptions(): CreateOptions {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem(OPTS_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+export function saveCreateOptions(opts: CreateOptions): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(OPTS_KEY, JSON.stringify(opts));
+}
+
+async function api<T>(path: string, token: string, init?: RequestInit): Promise<T> {
+  const res = await fetchWithRetry(`${API_URL}${path}`, {
+    ...init,
+    headers: {
+      ...authHeaders(token),
+      "Content-Type": "application/json",
+      ...(init?.headers || {}),
+    },
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.detail || "Request failed — please try again.");
+  return body as T;
+}
+
+export type Collection = { id: string; name: string; clip_ids: string[] };
+
+export const listCollections = (t: string) => api<{ collections: Collection[] }>("/api/collections", t);
+export const createCollection = (t: string, name: string) =>
+  api<{ collection: Collection }>("/api/collections", t, { method: "POST", body: JSON.stringify({ name }) });
+export const deleteCollection = (t: string, id: string) =>
+  api<{ ok: boolean }>(`/api/collections/${id}`, t, { method: "DELETE" });
+export const collectionItem = (t: string, id: string, clipId: string, remove = false) =>
+  api<{ collection: Collection }>(`/api/collections/${id}/items`, t, {
+    method: "POST",
+    body: JSON.stringify({ clip_id: clipId, remove }),
+  });
+
+export const duplicateClip = (t: string, clipId: string) =>
+  api<{ clip: Clip }>(`/api/clips/${clipId}/duplicate`, t, { method: "POST", body: "{}" });
+export const shareClip = (t: string, clipId: string) =>
+  api<{ share_id: string; share_url: string }>(`/api/clips/${clipId}/share`, t, {
+    method: "POST",
+    body: JSON.stringify({ enabled: true }),
+  });
+export const shareJob = (t: string, jobId: string) =>
+  api<{ share_id: string }>(`/api/jobs/${jobId}/share`, t, {
+    method: "POST",
+    body: JSON.stringify({ enabled: true }),
+  });
+export const getShare = (shareId: string) =>
+  fetch(`${API_URL}/api/share/${shareId}`).then((r) => (r.ok ? r.json() : Promise.reject(new Error("not found"))));
+
+export function subtitlesUrl(clipId: string, kind: "srt" | "vtt", token: string): string {
+  // downloaded via fetch blob so the auth header is attached
+  return `${API_URL}/api/clips/${clipId}/subtitles.${kind}?token=${encodeURIComponent(token)}`;
+}
+
+export async function downloadSubtitles(clip: Clip, kind: "srt" | "vtt", token: string) {
+  const res = await fetchWithRetry(`${API_URL}/api/clips/${clip.id}/subtitles.${kind}`, {
+    headers: authHeaders(token),
+  });
+  if (!res.ok) throw new Error("Could not build subtitles.");
+  const blob = await res.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${(clip.title || "clip").replace(/[^\w\- ]+/g, "").slice(0, 40) || "clip"}.${kind}`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+export const makeThumbnails = (t: string, clipId: string, prompt = "") =>
+  api<{ ok: boolean; message: string }>(`/api/clips/${clipId}/thumbnails`, t, {
+    method: "POST",
+    body: JSON.stringify({ prompt }),
+  });
+export const censorClip = (t: string, clipId: string, beep = true) =>
+  api<{ ok: boolean; message: string }>(`/api/clips/${clipId}/censor`, t, {
+    method: "POST",
+    body: JSON.stringify({ beep }),
+  });
+export const translateClip = (t: string, clipId: string, lang: string, burn = true) =>
+  api<{ ok: boolean; message: string }>(`/api/clips/${clipId}/translate`, t, {
+    method: "POST",
+    body: JSON.stringify({ lang, burn }),
+  });
+
+export type SocialPack = Record<string, { title: string; description: string; hashtags: string[] }>;
+export const getSocialPack = (t: string, clipId: string) =>
+  api<{ pack: SocialPack; platforms: string[] }>(`/api/clips/${clipId}/social-pack`, t);
+export const buildSocialPack = (t: string, clipId: string, prompt = "", lang = "en") =>
+  api<{ pack: SocialPack }>(`/api/clips/${clipId}/social-pack`, t, {
+    method: "POST",
+    body: JSON.stringify({ prompt, lang }),
+  });
+
+export type Schedule = {
+  id: string; clip_id: string; platform: string; publish_at: string;
+  title?: string; description?: string; status?: string;
+};
+export const listSchedules = (t: string) => api<{ schedules: Schedule[] }>("/api/schedules", t);
+export const createSchedule = (t: string, s: Omit<Schedule, "id" | "status">) =>
+  api<{ schedule: Schedule }>("/api/schedules", t, { method: "POST", body: JSON.stringify(s) });
+export const deleteSchedule = (t: string, id: string) =>
+  api<{ ok: boolean }>(`/api/schedules/${id}`, t, { method: "DELETE" });
+
+export type BrandKit = {
+  id: string; name: string; logo_url?: string; caption_style?: string; accent?: string;
+};
+export const listBrandKits = (t: string) => api<{ brand_kits: BrandKit[] }>("/api/brand-kits", t);
+export const saveBrandKit = (t: string, kit: Partial<BrandKit> & { logo_data_url?: string }) =>
+  api<{ brand_kit: BrandKit }>("/api/brand-kits", t, { method: "PUT", body: JSON.stringify(kit) });

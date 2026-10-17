@@ -287,6 +287,27 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
         job_rows = job_res.data or []
         user_id = job_rows[0].get("user_id") if job_rows else None
         prefs = _user_prefs(user_id) if user_id else {"is_pro": False, "caption_style": "beast", "sfx": False, "enhance": False, "reframe": "face"}
+        # ---- OpusClip-parity create options (genre/keywords/aspect/brand/...) ----
+        from app.services import parity as _parity
+
+        opts = _parity.load_job_prefs(job_id)
+        cap_style = str(opts.get("caption_style") or prefs.get("caption_style") or "beast")
+        brand_logo_local = ""
+        if opts.get("brand_kit_id") and user_id:
+            for kit in _parity.list_brand_kits(user_id):
+                if kit.get("id") == opts.get("brand_kit_id"):
+                    cap_style = str(kit.get("caption_style") or cap_style)
+                    logo_url = kit.get("logo_url") or ""
+                    if logo_url:
+                        try:
+                            import urllib.request
+
+                            brand_logo_local = os.path.join(workdir, "brand_logo.img")
+                            with open(brand_logo_local, "wb") as fh:
+                                fh.write(urllib.request.urlopen(logo_url, timeout=30).read())
+                        except Exception:
+                            brand_logo_local = ""
+                    break
         is_pro = bool(prefs.get("is_pro"))
 
         # Keep a copy of the SOURCE so the Pro editor can re-render in full quality
@@ -315,7 +336,7 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
 
         # ---------- Step 3: GPT-4o highlight detection ----------
         update_job(job_id, stage="finding_viral_moments", progress=40)
-        clips = highlights.detect_highlights(transcript, duration)
+        clips = highlights.detect_highlights(transcript, duration, prefs=opts)
         if not clips:
             raise RuntimeError("The AI could not find any good moments to clip.")
         logger.info("Job %s: AI picked %d moments", job_id, len(clips))
@@ -354,13 +375,23 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
                 silences = video_processor.detect_silences(source_path, clip["start"], clip["end"])
             except Exception:
                 silences = []
+            if opts.get("remove_fillers"):
+                try:
+                    in_range = [
+                        {"start": w["start"], "end": w["end"], "word": w.get("word", "")}
+                        for w in transcript.get("words") or []
+                        if float(w.get("start", 0)) >= clip["start"] - 0.01 and float(w.get("end", 0)) <= clip["end"] + 0.01
+                    ]
+                    silences = list(silences) + _parity.find_filler_ranges(in_range)
+                except Exception:
+                    logger.exception("filler detection failed (non-fatal)")
             kept_segments = video_processor.build_kept_segments(clip["start"], clip["end"], silences)
 
             # Captions follow the NEW pause-free timeline
             remapped = captions.remap_words(transcript["words"], kept_segments)
             kept_len = sum(b - a for a, b in kept_segments)
             captions.build_ass_captions(remapped, 0.0, max(1.0, kept_len), ass_path,
-                                        style=str(prefs.get("caption_style") or "beast"),
+                                        style=cap_style,
                                         watermark=not is_pro)
 
             chain = video_processor.clip_video_chain(
@@ -368,12 +399,18 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
                 reframe=str(prefs.get("reframe") or "face"),
                 enhance=bool(prefs.get("enhance")) and is_pro,
                 watermark=not is_pro,
+                aspect=str(opts.get("aspect") or "9:16"),
             )
             video_processor.cut_and_concat(
                 source_path, kept_segments, clip_path,
                 video_chain=chain, ass_path=ass_path,
                 total_seconds=kept_len, on_progress=_clip_progress,
             )
+            if brand_logo_local:
+                try:
+                    _parity.overlay_logo(clip_path, brand_logo_local)
+                except Exception:
+                    logger.exception("brand logo overlay failed (non-fatal)")
 
             if is_pro and prefs.get("sfx"):
                 try:
@@ -471,6 +508,17 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
                 logger.exception("Recap render failed (not fatal)")
 
         update_job(job_id, status="completed", stage="done", progress=100, error=None)
+        # OpusClip parity: conclusionActions-style webhook
+        try:
+            if opts.get("webhook_url"):
+                _parity.fire_webhook(str(opts.get("webhook_url")), {
+                    "event": "job.completed",
+                    "job_id": job_id,
+                    "clips": len(saved_clips),
+                    "title": str((job_rows[0].get("source_filename") if job_rows else "") or "")[:120],
+                })
+        except Exception:
+            logger.exception("webhook failed (non-fatal)")
 
         # Janitor: keep only the newest 4 videos per account, auto-delete older ones
         try:

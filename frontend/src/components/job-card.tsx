@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { downloadClip, type Clip, type Job , cancelJob} from "@/lib/api";
+import ClipActions from "@/components/clip-actions";
 import Link from "next/link";
 import { Wand2 } from "lucide-react";
 import type { Account } from "@/lib/api";
@@ -206,6 +207,7 @@ export default function JobCard({ job, token, account }: { job: Job; token: stri
                       <Sparkles className="h-4 w-4" /> 🎨 Studio (live)
                     </Button>
                   </Link>
+                  <ClipActions clip={clip} token={token} />
                 </div>
               </div>
             ))}

@@ -1,11 +1,12 @@
 """Handles video uploads: saves the file, creates a job, starts the AI pipeline."""
 
+import json
 import logging
 import os
 import shutil
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from app.auth import get_current_user
@@ -23,6 +24,7 @@ ALLOWED_EXTENSIONS = {".mp4", ".mov", ".m4v", ".webm", ".mkv", ".avi"}
 async def upload_video(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    options: str = Form(""),
     user=Depends(get_current_user),
 ):
     """
@@ -81,6 +83,14 @@ async def upload_video(
     }
     get_admin().table("jobs").insert(job_row).execute()
 
+    # Job options (genre / keywords / prompt / aspect / fillers / ...) — parity pack
+    try:
+        from app.services import parity as _parity
+
+        _parity.save_job_prefs(job_id, json.loads(options) if options.strip() else {})
+    except Exception:
+        logger.exception("could not save create options (non-fatal)")
+
     # Keep a storage copy RIGHT AWAY so a server restart can never lose this job.
     try:
         from app.services import storage as _storage
@@ -98,6 +108,7 @@ async def upload_video(
 
 class LinkRequest(BaseModel):
     url: str
+    options: dict = {}
 
 
 @router.post("/api/videos/from-link")
@@ -128,6 +139,14 @@ async def upload_from_link(
         "source_size_bytes": 0,
     }
     get_admin().table("jobs").insert(job_row).execute()
+
+    # Job options (genre / keywords / prompt / aspect / fillers / ...) — parity pack
+    try:
+        from app.services import parity as _parity
+
+        _parity.save_job_prefs(job_id, dict(payload.options or {}))
+    except Exception:
+        logger.exception("could not save create options (non-fatal)")
 
     # Fetch the video + run the pipeline, both in the background.
     background_tasks.add_task(fetch_and_run, job_id, url)
