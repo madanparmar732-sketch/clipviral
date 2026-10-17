@@ -549,6 +549,14 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
 
 def fetch_and_run(job_id: str, url: str) -> None:
     """Background task: fetch the video from the link, then run the normal pipeline."""
+    # ONE owner per job: the sweeper and the health auto-fix can both pick up a
+    # queued job seconds apart — two fetch loops = one deletes the other's file
+    # mid-run (bit us on 2026-10-17). First claimer wins, second exits clean.
+    with _INFLIGHT_LOCK:
+        last = _INFLIGHT.get(job_id)
+        if last is not None and time.time() - last < 120:
+            logger.info("fetch_and_run skipped — another run already owns job %s", job_id)
+            return
     _mark_inflight(job_id)
     try:
         _fetch_and_run_inner(job_id, url)
@@ -619,8 +627,11 @@ def _fetch_and_run_inner(job_id: str, url: str) -> None:
         shutil.rmtree(workdir, ignore_errors=True)
         return
 
+    # We are ALREADY on a background thread — run the pipeline right here
+    # (a thread-hop would let the inflight claim lapse mid-handoff and a
+    # second recover could double-run the job).
     try:
-        run_pipeline(job_id, result["path"])
+        _run_guarded(job_id, result["path"])
     except Exception:
         shutil.rmtree(workdir, ignore_errors=True)
         raise
