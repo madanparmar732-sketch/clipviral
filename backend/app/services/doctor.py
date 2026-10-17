@@ -129,7 +129,14 @@ def auto_fixes() -> list[str]:
                 continue
             with pl._INFLIGHT_LOCK:
                 ts = pl._PROGRESS_TS.get(jid)
+                last_alive = pl._INFLIGHT.get(jid)
             if not ts or time.time() - ts < 360:
+                continue
+            # A FRESH WORKER HEARTBEAT means the run is alive — just slow (a
+            # 0.5-vCPU box can take >6 min for one render). Re-queueing then
+            # starts a second run that fights the first (file deletions, stage
+            # thrash). Only a DEAD worker (no heartbeat) justifies a retry.
+            if last_alive and time.time() - last_alive < 150:
                 continue
             count = _STUCK.get(jid, 0) + 1
             _STUCK[jid] = count
