@@ -77,7 +77,7 @@ export default function AdSlot({
         <div className="flex items-start gap-3">
           <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
           <div>
-            <p className="text-sm font-semibold text-amber-300">Adblocker detected 🚫</p>
+            <p className="text-sm font-semibold text-amber-600">Adblocker detected 🚫</p>
             <p className="mt-1 text-xs text-amber-200/80">
               Ads keep ClipViral FREE for everyone. Please disable your adblocker for this site — or go
               Pro and enjoy zero ads, no watermark and all 20 caption styles.
@@ -111,13 +111,13 @@ export default function AdSlot({
           />
         </>
       ) : (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-gradient-to-r from-neutral-800/10 to-fuchsia-500/10 px-4 py-3">
           <p className="text-sm text-muted-foreground">
-            <span className="font-semibold text-white">Tired of ads?</span> Go Pro — no ads, no watermark,
+            <span className="font-semibold text-foreground">Tired of ads?</span> Go Pro — no ads, no watermark,
             20 caption styles, 1080p, priority speed.
           </p>
           <Link href="/pricing">
-            <Button size="sm" className="bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white">
+            <Button size="sm" className="">
               <Sparkles className="h-4 w-4" /> Upgrade — ₹299/mo
             </Button>
           </Link>

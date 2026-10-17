@@ -69,7 +69,7 @@ export default function ClipActions({ clip, token }: { clip: Clip; token: string
       </Button>
 
       {open && (
-        <div className="mt-2 space-y-3 rounded-lg border border-white/10 bg-black/20 p-3">
+        <div className="mt-2 space-y-3 rounded-lg border border-border bg-black/20 p-3">
           {note && <p className="text-xs text-muted-foreground">{note}</p>}
 
           <div className="grid grid-cols-2 gap-2">
@@ -93,7 +93,7 @@ export default function ClipActions({ clip, token }: { clip: Clip; token: string
 
           {/* translate */}
           <div className="flex items-center gap-2">
-            <Languages className="h-3.5 w-3.5 text-violet-400" />
+            <Languages className="h-3.5 w-3.5 text-accent" />
             <Input value={lang} onChange={(e) => setLang(e.target.value)} className="h-8 w-20 text-xs" placeholder="hi" />
             <Button size="sm" variant="outline" disabled={!!busy}
               onClick={() => run("tr", async () => { await translateClip(token, clip.id, lang, true); return `🌐 ${lang.toUpperCase()} version ban raha — 60s me Refresh`; })}>
@@ -113,10 +113,10 @@ export default function ClipActions({ clip, token }: { clip: Clip; token: string
 
           {/* collections */}
           <div className="flex flex-wrap items-center gap-2">
-            <FolderPlus className="h-3.5 w-3.5 text-violet-400" />
+            <FolderPlus className="h-3.5 w-3.5 text-accent" />
             {collections.length === 0 && <span className="text-xs text-muted-foreground">Collections: dashboard se banao</span>}
             {collections.map((c) => (
-              <Button key={c.id} size="sm" variant="ghost" className="h-7 border border-white/10"
+              <Button key={c.id} size="sm" variant="ghost" className="h-7 border border-border"
                 onClick={() => run(`col-${c.id}`, async () => {
                   await collectionItem(token, c.id, clip.id);
                   return `📁 "${c.name}" me add ho gaya`;
@@ -149,7 +149,7 @@ export default function ClipActions({ clip, token }: { clip: Clip; token: string
                   ))}
                 </div>
                 {pack[platform] && (
-                  <div className="space-y-1.5 rounded-md border border-white/10 p-2">
+                  <div className="space-y-1.5 rounded-md border border-border p-2">
                     <p className="text-xs font-semibold">{pack[platform].title}</p>
                     <p className="text-xs text-muted-foreground">{pack[platform].description}</p>
                     <div className="flex gap-1">

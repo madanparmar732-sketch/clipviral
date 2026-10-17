@@ -79,12 +79,12 @@ export default function BrandKitPage() {
             Logo, caption style, accent colour — har clip pe automatically.
           </p>
         </div>
-        <Link href="/dashboard" className="text-sm text-violet-400 hover:underline">
+        <Link href="/dashboard" className="text-sm text-accent hover:underline">
           ← Dashboard
         </Link>
       </div>
 
-      <div className="space-y-4 rounded-2xl border border-white/10 p-6">
+      <div className="space-y-4 rounded-2xl border border-border p-6">
         <div className="space-y-1.5">
           <Label>Kit naam</Label>
           <Input value={name} onChange={(e) => setName(e.target.value)} />
@@ -105,11 +105,11 @@ export default function BrandKitPage() {
           <div className="space-y-1.5">
             <Label>Accent colour</Label>
             <input type="color" value={accent} onChange={(e) => setAccent(e.target.value)}
-              className="h-10 w-20 cursor-pointer rounded border border-white/10 bg-transparent" />
+              className="h-10 w-20 cursor-pointer rounded border border-border bg-transparent" />
           </div>
           <div className="space-y-1.5">
             <Label>Logo (PNG/JPG, chhota rakho)</Label>
-            <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-white/20 px-4 py-2 text-sm hover:bg-white/5">
+            <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-4 py-2 text-sm hover:bg-[#f2efe9]">
               <Upload className="h-4 w-4" />
               {logoDataUrl ? "Logo selected ✅" : "Choose a logo"}
               <input type="file" accept="image/*" className="hidden" onChange={pickLogo} />
@@ -129,7 +129,7 @@ export default function BrandKitPage() {
             <Palette className="h-4 w-4" /> Saved kits
           </h2>
           {kits.map((k) => (
-            <div key={k.id} className="flex items-center justify-between rounded-xl border border-white/10 p-4">
+            <div key={k.id} className="flex items-center justify-between rounded-xl border border-border p-4">
               <div>
                 <p className="text-sm font-medium">{k.name}</p>
                 <p className="text-xs text-muted-foreground">

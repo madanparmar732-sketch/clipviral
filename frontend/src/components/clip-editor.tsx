@@ -138,8 +138,8 @@ export default function ClipEditor({
                     className={
                       "rounded px-1.5 py-0.5 text-xs transition-colors " +
                       (removed.has(i)
-                        ? "bg-red-500/20 text-red-300 line-through"
-                        : "bg-white/10 hover:bg-white/20")
+                        ? "bg-red-100 text-red-700 line-through"
+                        : "bg-black/[0.05] hover:bg-black/[0.09]")
                     }
                   >
                     {w.word}
@@ -160,7 +160,7 @@ export default function ClipEditor({
                   onClick={() => setStyle(s)}
                   className={
                     "rounded px-1.5 py-1 text-[10px] font-semibold transition-colors " +
-                    (style === s ? "bg-violet-500 text-white" : "bg-white/10 hover:bg-white/20")
+                    (style === s ? "bg-neutral-800 text-white" : "bg-black/[0.05] hover:bg-black/[0.09]")
                   }
                 >
                   {s.replace("_", " ")}
@@ -181,7 +181,7 @@ export default function ClipEditor({
                 max={Math.max(2, trimEnd - 2)}
                 value={trimStart}
                 onChange={(e) => setTrimStart(Number(e.target.value))}
-                className="w-1/2 accent-violet-500"
+                className="w-1/2 accent-neutral-800"
               />
               <input
                 type="range"
@@ -189,7 +189,7 @@ export default function ClipEditor({
                 max={duration}
                 value={trimEnd}
                 onChange={(e) => setTrimEnd(Number(e.target.value))}
-                className="w-1/2 accent-violet-500"
+                className="w-1/2 accent-neutral-800"
               />
             </div>
           </div>
@@ -201,7 +201,7 @@ export default function ClipEditor({
               onClick={() => setSfx(!sfx)}
               className={
                 "rounded-full border px-3 py-1 " +
-                (sfx ? "border-violet-400 bg-violet-500/25 text-white" : "border-white/15 text-muted-foreground")
+                (sfx ? "border-accent/40 bg-accent/10 text-foreground" : "border-border text-muted-foreground")
               }
             >
               Auto SFX 🔊
@@ -211,7 +211,7 @@ export default function ClipEditor({
               onClick={() => setEnhance(!enhance)}
               className={
                 "rounded-full border px-3 py-1 " +
-                (enhance ? "border-violet-400 bg-violet-500/25 text-white" : "border-white/15 text-muted-foreground")
+                (enhance ? "border-accent/40 bg-accent/10 text-foreground" : "border-border text-muted-foreground")
               }
             >
               Upscale ✨
@@ -219,7 +219,7 @@ export default function ClipEditor({
             <button
               type="button"
               onClick={() => setReframe(reframe === "face" ? "center" : "face")}
-              className="rounded-full border border-white/15 px-3 py-1 text-muted-foreground"
+              className="rounded-full border border-border px-3 py-1 text-muted-foreground"
             >
               Reframe: {reframe === "face" ? "🎯 face" : "⬜ center"}
             </button>
@@ -229,8 +229,8 @@ export default function ClipEditor({
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scissors className="h-4 w-4" />}
             Re-render in full quality
           </Button>
-          {msg && <p className="text-xs text-emerald-400">{msg}</p>}
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          {msg && <p className="text-xs text-emerald-600">{msg}</p>}
+          {error && <p className="text-xs text-red-600">{error}</p>}
         </div>
       )}
     </div>

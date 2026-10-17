@@ -40,12 +40,12 @@ export default function SharePage() {
       <div className="mb-8 text-center">
         <p className="text-3xl font-bold">⚡ ClipViral</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Shared clips — <a href="/" className="text-violet-400 hover:underline">make your own free</a>
+          Shared clips — <a href="/" className="text-accent hover:underline">make your own free</a>
         </p>
       </div>
 
       {error && (
-        <p className="rounded-xl border border-white/10 p-8 text-center text-sm text-muted-foreground">
+        <p className="rounded-xl border border-border p-8 text-center text-sm text-muted-foreground">
           Ye share link kaam nahi karta (ya expire ho gaya).
         </p>
       )}
@@ -56,7 +56,7 @@ export default function SharePage() {
       {data && (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {(data.clips || []).map((c) => (
-            <div key={c.id} className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+            <div key={c.id} className="overflow-hidden rounded-2xl border border-border bg-[#f2efe9]">
               <div className="relative aspect-[9/16] max-h-96 bg-black/40">
                 {c.video_url ? (
                   <video src={c.video_url} poster={c.thumbnail_url || undefined} controls
@@ -65,7 +65,7 @@ export default function SharePage() {
                   <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No video</div>
                 )}
                 {c.score ? (
-                  <div className="absolute left-2 top-2 rounded-full bg-emerald-500/90 px-2 py-0.5 text-xs font-bold text-white">
+                  <div className="absolute left-2 top-2 rounded-full bg-emerald-500/90 px-2 py-0.5 text-xs font-bold text-foreground">
                     🔥 {c.score}
                   </div>
                 ) : null}
@@ -76,7 +76,7 @@ export default function SharePage() {
                 {c.hashtags && c.hashtags.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {c.hashtags.slice(0, 5).map((t) => (
-                      <span key={t} className="rounded-full bg-white/10 px-2 py-0.5 text-[10px]">{t}</span>
+                      <span key={t} className="rounded-full bg-black/[0.04] px-2 py-0.5 text-[10px]">{t}</span>
                     ))}
                   </div>
                 )}

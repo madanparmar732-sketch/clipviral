@@ -85,7 +85,7 @@ export default function PricingPage() {
       <main className="hero-glow container max-w-5xl px-4 py-16 md:py-20">
         {/* header */}
         <div className="mx-auto max-w-2xl text-center">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-indigo-400/25 bg-indigo-500/10 px-4 py-1.5 text-xs font-semibold text-indigo-200">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/[0.08] px-4 py-1.5 text-xs font-semibold text-accent">
             <Sparkles className="h-3.5 w-3.5" /> The whole product is free. Really.
           </div>
           <h1 className="text-4xl font-extrabold tracking-tight md:text-5xl">
@@ -98,7 +98,7 @@ export default function PricingPage() {
           {account && (
             <p className="mt-4 text-sm text-muted-foreground">
               Your account:{" "}
-              <span className={`font-bold ${account.plan === "pro" ? "text-amber-300" : "text-emerald-400"}`}>
+              <span className={`font-bold ${account.plan === "pro" ? "text-amber-600" : "text-emerald-600"}`}>
                 {account.plan === "pro" ? "PRO ⚡" : "FREE — all features unlocked"}
               </span>
             </p>
@@ -108,7 +108,7 @@ export default function PricingPage() {
         {/* cards */}
         <div className="mt-12 grid items-start gap-6 md:grid-cols-2">
           {/* FREE */}
-          <div className="card-lift rounded-3xl border border-white/[0.09] bg-white/[0.03] p-8">
+          <div className="card-lift rounded-3xl border border-border bg-[#f2efe9] p-8">
             <p className="eyebrow">Starter</p>
             <h2 className="mt-2 text-2xl font-bold">Free forever</h2>
             <p className="mt-3 flex items-baseline gap-2">
@@ -121,15 +121,15 @@ export default function PricingPage() {
             <ul className="mt-6 space-y-2.5">
               {FREE_FEATURES.map((f) => (
                 <li key={f} className="flex items-start gap-2.5 text-sm">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" /> <span className="text-white/85">{f}</span>
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /> <span className="text-foreground/90">{f}</span>
                 </li>
               ))}
             </ul>
             <p className="mt-6 text-xs text-muted-foreground">The only trade-offs:</p>
             <ul className="mt-1.5 flex flex-wrap gap-2">
               {FREE_EXCLUSIVES.map((f) => (
-                <li key={f} className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-white/55">
-                  <X className="h-3 w-3 text-white/35" /> {f}
+                <li key={f} className="flex items-center gap-1.5 rounded-full border border-border bg-[#f2efe9] px-2.5 py-1 text-xs text-muted-foreground">
+                  <X className="h-3 w-3 text-muted-foreground/70" /> {f}
                 </li>
               ))}
             </ul>
@@ -141,13 +141,13 @@ export default function PricingPage() {
           </div>
 
           {/* PRO */}
-          <div className="relative rounded-3xl border border-amber-300/25 bg-gradient-to-b from-amber-400/[0.08] via-violet-500/[0.06] to-transparent p-8 shadow-2xl shadow-amber-500/5">
-            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 px-4 py-1 text-[11px] font-black uppercase tracking-widest text-black shadow-lg shadow-amber-500/30">
+          <div className="relative rounded-3xl border border-border bg-card p-8 ">
+            <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-[#191817] px-4 py-1 text-[11px] font-black uppercase tracking-widest text-black shadow-lg shadow-amber-500/30">
               Clean + Fast
             </div>
-            <p className="eyebrow text-amber-300/90">Pro</p>
+            <p className="eyebrow text-amber-600/90">Pro</p>
             <h2 className="mt-2 flex items-center gap-2 text-2xl font-bold">
-              <Crown className="h-6 w-6 text-amber-300" /> ClipViral Pro
+              <Crown className="h-6 w-6 text-amber-600" /> ClipViral Pro
             </h2>
             <p className="mt-3 flex items-baseline gap-2">
               <span className="text-5xl font-black tracking-tight">₹299</span>
@@ -159,14 +159,14 @@ export default function PricingPage() {
             <ul className="mt-6 space-y-2.5">
               {PRO_FEATURES.map((f) => (
                 <li key={f} className="flex items-start gap-2.5 text-sm">
-                  <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" /> <span className="text-white/85">{f}</span>
+                  <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" /> <span className="text-foreground/90">{f}</span>
                 </li>
               ))}
             </ul>
 
-            <div className="mt-7 rounded-2xl border border-white/10 bg-black/25 p-5">
+            <div className="mt-7 rounded-2xl border border-border bg-[#f6f4f0] p-5">
               {account?.plan === "pro" ? (
-                <p className="text-center text-sm font-semibold text-emerald-400">
+                <p className="text-center text-sm font-semibold text-emerald-600">
                   ✅ Pro is active on this account. Thank you for keeping the servers free for everyone else.
                 </p>
               ) : (
@@ -184,13 +184,13 @@ export default function PricingPage() {
                       className="uppercase"
                       disabled={busy}
                     />
-                    <Button onClick={redeem} disabled={busy || !code.trim()} className="bg-gradient-to-r from-amber-400 to-orange-400 font-bold text-black hover:opacity-90">
+                    <Button onClick={redeem} disabled={busy || !code.trim()} className="bg-[#191817] font-bold text-black hover:opacity-90">
                       {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
                       Activate
                     </Button>
                   </div>
-                  {msg && <p className="mt-2 text-xs text-emerald-400">✅ {msg}</p>}
-                  {error && <p className="mt-2 text-xs text-red-400">❌ {error}</p>}
+                  {msg && <p className="mt-2 text-xs text-emerald-600">✅ {msg}</p>}
+                  {error && <p className="mt-2 text-xs text-red-600">❌ {error}</p>}
                 </>
               )}
             </div>

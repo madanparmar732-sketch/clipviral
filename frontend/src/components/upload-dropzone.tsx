@@ -77,7 +77,7 @@ export default function UploadDropzone({ compact = false }: { compact?: boolean 
           if (!busy) pickFile(e.dataTransfer.files?.[0] ?? null);
         }}
         className={cn(
-          "flex cursor-pointer flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed border-white/20 bg-white/5 text-center transition-all hover:border-violet-400/60 hover:bg-white/10",
+          "flex cursor-pointer flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed border-border bg-[#f2efe9] text-center transition-all hover:border-violet-400/60 hover:bg-black/[0.04]",
           dragging && "scale-[1.01] border-violet-400 bg-violet-500/10",
           compact ? "p-8" : "p-14",
           busy && "pointer-events-none opacity-80"
@@ -91,11 +91,11 @@ export default function UploadDropzone({ compact = false }: { compact?: boolean 
           onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
         />
 
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/30 to-cyan-400/30">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#efece6]">
           {busy ? (
-            <Loader2 className="h-8 w-8 animate-spin text-violet-300" />
+            <Loader2 className="h-8 w-8 animate-spin text-accent" />
           ) : (
-            <UploadCloud className="h-8 w-8 text-violet-300" />
+            <UploadCloud className="h-8 w-8 text-accent" />
           )}
         </div>
 
@@ -111,7 +111,7 @@ export default function UploadDropzone({ compact = false }: { compact?: boolean 
         </div>
 
         {file && !busy && (
-          <div className="flex items-center gap-2 text-sm text-cyan-300">
+          <div className="flex items-center gap-2 text-sm text-accent">
             <Film className="h-4 w-4" /> Video selected — press the button below
           </div>
         )}
@@ -127,7 +127,7 @@ export default function UploadDropzone({ compact = false }: { compact?: boolean 
       )}
 
       {error && (
-        <p className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </p>
       )}

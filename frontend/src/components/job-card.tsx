@@ -104,7 +104,7 @@ export default function JobCard({ job, token, account }: { job: Job; token: stri
             </CardDescription>
           </div>
           {job.status === "completed" && job.clips.length > 0 && (
-            <div className="flex items-center gap-1.5 rounded-full bg-violet-500/15 px-3 py-1 text-xs font-medium text-violet-300">
+            <div className="flex items-center gap-1.5 rounded-full bg-accent/[0.08] px-3 py-1 text-xs font-medium text-accent">
               <Sparkles className="h-3.5 w-3.5" /> {job.clips.length} viral clips ready
             </div>
           )}
@@ -115,7 +115,7 @@ export default function JobCard({ job, token, account }: { job: Job; token: stri
         {(job.status === "processing" || job.status === "queued") && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin text-violet-400" />
+              <Loader2 className="h-4 w-4 animate-spin text-accent" />
               {stageLabel(job.stage)}
             </div>
             <div className="flex items-center gap-1.5">
@@ -127,12 +127,12 @@ export default function JobCard({ job, token, account }: { job: Job; token: stri
                   <div key={s} className="flex-1">
                     <div
                       className={`h-1 rounded-full transition-colors duration-500 ${
-                        i < activeIdx ? "bg-gradient-to-r from-indigo-400 to-fuchsia-400"
-                        : i === activeIdx ? "bg-indigo-400/70 animate-pulse"
-                        : "bg-white/10"
+                        i < activeIdx ? "bg-neutral-800"
+                        : i === activeIdx ? "bg-neutral-700/70 animate-pulse"
+                        : "bg-black/[0.04]"
                       }`}
                     />
-                    <p className={`mt-1.5 text-center text-[10px] ${i <= activeIdx ? "text-indigo-200" : "text-muted-foreground/50"}`}>
+                    <p className={`mt-1.5 text-center text-[10px] ${i <= activeIdx ? "text-accent" : "text-muted-foreground/50"}`}>
                       {s}
                     </p>
                   </div>
@@ -145,13 +145,13 @@ export default function JobCard({ job, token, account }: { job: Job; token: stri
         )}
 
         {job.status === "failed" && (
-          <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {job.error ?? "This job failed. Please try again."}
           </p>
         )}
 
         {error && (
-          <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </p>
         )}
@@ -161,7 +161,7 @@ export default function JobCard({ job, token, account }: { job: Job; token: stri
             {job.clips.map((clip) => (
               <div
                 key={clip.id}
-                className="overflow-hidden rounded-xl border border-white/10 bg-white/5"
+                className="overflow-hidden rounded-xl border border-border bg-[#f2efe9]"
               >
                 <div className="relative aspect-[9/16] max-h-80 w-full bg-black/40">
                   {clip.video_url ? (
@@ -178,7 +178,7 @@ export default function JobCard({ job, token, account }: { job: Job; token: stri
                     </div>
                   )}
                   {clip.score ? (
-                    <div className="absolute left-2 top-2 rounded-full bg-emerald-500/90 px-2 py-0.5 text-xs font-bold text-white">
+                    <div className="absolute left-2 top-2 rounded-full bg-emerald-500/90 px-2 py-0.5 text-xs font-bold text-foreground">
                       🔥 {clip.score}
                     </div>
                   ) : null}

@@ -215,7 +215,7 @@ export default function EditorPage() {
       {/* HEADER */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="rounded-full border border-white/15 p-2 hover:bg-white/10">
+          <Link href="/dashboard" className="rounded-full border border-border p-2 hover:bg-black/[0.04]">
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
@@ -229,7 +229,7 @@ export default function EditorPage() {
               <Download className="h-4 w-4" /> Download
             </Button>
           )}
-          <Button size="sm" onClick={apply} disabled={busy} className="bg-gradient-to-r from-violet-500 to-fuchsia-500">
+          <Button size="sm" onClick={apply} disabled={busy} className="">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scissors className="h-4 w-4" />}
             Re-render
           </Button>
@@ -237,7 +237,7 @@ export default function EditorPage() {
       </div>
 
       {(msg || error) && (
-        <div className={"mb-4 rounded-lg border px-4 py-2 text-sm " + (error ? "border-red-500/30 bg-red-500/10 text-red-300" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300")}>
+        <div className={"mb-4 rounded-lg border px-4 py-2 text-sm " + (error ? "border-red-500/30 bg-red-50 text-red-700" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700")}>
           {error ?? msg}
         </div>
       )}
@@ -245,7 +245,7 @@ export default function EditorPage() {
       <div className="grid gap-6 lg:grid-cols-[1fr,400px]">
         {/* PREVIEW */}
         <div className="space-y-4">
-          <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+          <div className="overflow-hidden rounded-2xl border border-border bg-[#131211]">
             {clip?.video_url ? (
               <video
                 key={clip.video_url}
@@ -260,20 +260,20 @@ export default function EditorPage() {
           </div>
 
           {/* quick trim bar */}
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+          <div className="rounded-xl border border-border bg-[#f2efe9] p-4">
             <p className="mb-2 text-xs font-semibold text-muted-foreground">
               ⏱️ Trim: {trimStart.toFixed(1)}s → {trimEnd.toFixed(1)}s (of {Math.round(duration)}s)
             </p>
             <div className="flex gap-3">
               <input type="range" min={0} max={Math.max(2, trimEnd - 2)} step={0.1}
                 value={trimStart} onChange={(e) => setTrimStart(Number(e.target.value))}
-                className="w-1/2 accent-violet-500" />
+                className="w-1/2 accent-neutral-800" />
               <input type="range" min={Math.min(duration, trimStart + 2)} max={duration} step={0.1}
                 value={trimEnd} onChange={(e) => setTrimEnd(Number(e.target.value))}
-                className="w-1/2 accent-violet-500" />
+                className="w-1/2 accent-neutral-800" />
             </div>
             {removed.size > 0 && (
-              <p className="mt-2 text-xs text-amber-300">✂️ {removed.size} word(s) marked for removal</p>
+              <p className="mt-2 text-xs text-amber-600">✂️ {removed.size} word(s) marked for removal</p>
             )}
           </div>
         </div>
@@ -288,7 +288,7 @@ export default function EditorPage() {
                 onClick={() => setTab(t.id)}
                 className={
                   "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors " +
-                  (tab === t.id ? "bg-violet-500 text-white" : "bg-white/10 hover:bg-white/20")
+                  (tab === t.id ? "bg-neutral-800 text-white" : "bg-black/[0.05] hover:bg-black/[0.09]")
                 }
               >
                 {t.label}
@@ -296,7 +296,7 @@ export default function EditorPage() {
             ))}
           </div>
 
-          <div className="min-h-[320px] space-y-4 rounded-xl border border-white/10 bg-white/5 p-4">
+          <div className="min-h-[320px] space-y-4 rounded-xl border border-border bg-[#f2efe9] p-4">
             {/* TRANSCRIPT */}
             {tab === "transcript" && (
               <>
@@ -314,7 +314,7 @@ export default function EditorPage() {
                       onClick={() => toggleWord(i)}
                       className={
                         "rounded px-1.5 py-0.5 text-xs transition-colors " +
-                        (removed.has(i) ? "bg-red-500/20 text-red-300 line-through" : "bg-white/10 hover:bg-white/20")
+                        (removed.has(i) ? "bg-red-100 text-red-700 line-through" : "bg-black/[0.05] hover:bg-black/[0.09]")
                       }
                     >
                       {w.word}
@@ -332,7 +332,7 @@ export default function EditorPage() {
                   <div className="grid grid-cols-4 gap-1.5">
                     {allStyles.map((s) => (
                       <button key={s} onClick={() => setStyle(s)}
-                        className={"rounded px-1.5 py-1 text-[10px] font-semibold " + (style === s ? "bg-violet-500 text-white" : "bg-white/10 hover:bg-white/20")}>
+                        className={"rounded px-1.5 py-1 text-[10px] font-semibold " + (style === s ? "bg-neutral-800 text-white" : "bg-black/[0.05] hover:bg-black/[0.09]")}>
                         {s.replace("_", " ")}
                       </button>
                     ))}
@@ -343,7 +343,7 @@ export default function EditorPage() {
                   <div className="flex gap-1.5">
                     {["top", "center", "bottom"].map((p) => (
                       <button key={p} onClick={() => setCaptionPos(p)}
-                        className={"flex-1 rounded px-2 py-1.5 text-xs " + (captionPos === p ? "bg-violet-500 text-white" : "bg-white/10")}>
+                        className={"flex-1 rounded px-2 py-1.5 text-xs " + (captionPos === p ? "bg-neutral-800 text-white" : "bg-black/[0.04]")}>
                         {p}
                       </button>
                     ))}
@@ -352,10 +352,10 @@ export default function EditorPage() {
                 <div>
                   <p className="mb-1 text-xs font-semibold text-muted-foreground">🔠 Size: {Math.round(sizeScale * 100)}%</p>
                   <input type="range" min={0.6} max={1.5} step={0.05} value={sizeScale}
-                    onChange={(e) => setSizeScale(Number(e.target.value))} className="w-full accent-violet-500" />
+                    onChange={(e) => setSizeScale(Number(e.target.value))} className="w-full accent-neutral-800" />
                 </div>
                 <button onClick={() => setCaps(!caps)}
-                  className={"w-full rounded-full border px-3 py-1.5 text-xs " + (caps ? "border-violet-400 bg-violet-500/25" : "border-white/15 text-muted-foreground")}>
+                  className={"w-full rounded-full border px-3 py-1.5 text-xs " + (caps ? "border-accent/40 bg-accent/10" : "border-border text-muted-foreground")}>
                   ALL CAPS {caps ? "ON" : "OFF"}
                 </button>
               </>
@@ -369,7 +369,7 @@ export default function EditorPage() {
                   <div className="grid grid-cols-4 gap-1.5">
                     {["9:16", "1:1", "16:9", "4:5"].map((a) => (
                       <button key={a} onClick={() => setAspect(a)}
-                        className={"rounded px-2 py-2 text-xs font-semibold " + (aspect === a ? "bg-violet-500 text-white" : "bg-white/10")}>
+                        className={"rounded px-2 py-2 text-xs font-semibold " + (aspect === a ? "bg-neutral-800 text-white" : "bg-black/[0.04]")}>
                         {a}
                       </button>
                     ))}
@@ -380,7 +380,7 @@ export default function EditorPage() {
                   <div className="flex gap-1.5">
                     {[["full", "Full frame"], ["pad", "Blur-pad"]].map(([v, l]) => (
                       <button key={v} onClick={() => setLayout(v)}
-                        className={"flex-1 rounded px-2 py-1.5 text-xs " + (layout === v ? "bg-violet-500 text-white" : "bg-white/10")}>
+                        className={"flex-1 rounded px-2 py-1.5 text-xs " + (layout === v ? "bg-neutral-800 text-white" : "bg-black/[0.04]")}>
                         {l}
                       </button>
                     ))}
@@ -391,14 +391,14 @@ export default function EditorPage() {
                   <div className="flex gap-1.5">
                     {[["face", "Face track"], ["center", "Center"]].map(([v, l]) => (
                       <button key={v} onClick={() => setReframe(v)}
-                        className={"flex-1 rounded px-2 py-1.5 text-xs " + (reframe === v ? "bg-violet-500 text-white" : "bg-white/10")}>
+                        className={"flex-1 rounded px-2 py-1.5 text-xs " + (reframe === v ? "bg-neutral-800 text-white" : "bg-black/[0.04]")}>
                         {l}
                       </button>
                     ))}
                   </div>
                 </div>
                 <button onClick={() => setEnhance(!enhance)}
-                  className={"w-full rounded-full border px-3 py-1.5 text-xs " + (enhance ? "border-violet-400 bg-violet-500/25" : "border-white/15 text-muted-foreground")}>
+                  className={"w-full rounded-full border px-3 py-1.5 text-xs " + (enhance ? "border-accent/40 bg-accent/10" : "border-border text-muted-foreground")}>
                   ✨ Upscale / Smart Enhance {enhance ? "ON" : "OFF"}
                 </button>
               </>
@@ -408,7 +408,7 @@ export default function EditorPage() {
             {tab === "polish" && (
               <>
                 <button onClick={() => setSfx(!sfx)}
-                  className={"w-full rounded-full border px-3 py-1.5 text-xs " + (sfx ? "border-violet-400 bg-violet-500/25" : "border-white/15 text-muted-foreground")}>
+                  className={"w-full rounded-full border px-3 py-1.5 text-xs " + (sfx ? "border-accent/40 bg-accent/10" : "border-border text-muted-foreground")}>
                   🔊 Auto SFX {sfx ? "ON" : "OFF"}
                 </button>
                 {(
@@ -424,7 +424,7 @@ export default function EditorPage() {
                       {label}: {Number(val).toFixed(2)}
                     </p>
                     <input type="range" min={min} max={max} step={step} value={val}
-                      onChange={(e) => setter(Number(e.target.value))} className="w-full accent-violet-500" />
+                      onChange={(e) => setter(Number(e.target.value))} className="w-full accent-neutral-800" />
                   </div>
                 ))}
               </>
@@ -455,7 +455,7 @@ export default function EditorPage() {
             )}
           </div>
 
-          <Button className="w-full bg-gradient-to-r from-violet-500 to-fuchsia-500" onClick={apply} disabled={busy}>
+          <Button className="w-full" onClick={apply} disabled={busy}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scissors className="h-4 w-4" />}
             Re-render in full quality
           </Button>

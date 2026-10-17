@@ -104,16 +104,16 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <Link href="/scheduler" className="glass card-lift rounded-full px-3.5 py-1.5 font-medium text-white/80 hover:text-white">
+          <Link href="/scheduler" className="glass card-lift rounded-full px-3.5 py-1.5 font-medium text-foreground/80 hover:text-foreground">
             📅 Scheduler & Collections
           </Link>
-          <Link href="/settings/brand" className="glass card-lift rounded-full px-3.5 py-1.5 font-medium text-white/80 hover:text-white">
+          <Link href="/settings/brand" className="glass card-lift rounded-full px-3.5 py-1.5 font-medium text-foreground/80 hover:text-foreground">
             🎨 Brand kit
           </Link>
           {health && (
             <span
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 font-medium ${
-                health.ok ? "bg-emerald-500/10 text-emerald-300/90" : "bg-red-500/10 text-red-300"
+                health.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
               }`}
               title={Object.entries(health.checks).map(([k, v]) => `${k}: ${v}`).join("\n")}
             >
@@ -147,7 +147,7 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
             <h2 className="text-lg font-bold">Make a new batch</h2>
             <p className="mt-0.5 text-sm text-muted-foreground">Upload a file or import from any platform.</p>
           </div>
-          <span className="hidden items-center gap-1.5 rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-200 sm:flex">
+          <span className="hidden items-center gap-1.5 rounded-full bg-accent/[0.08] px-3 py-1 text-xs font-semibold text-accent sm:flex">
             <Sparkles className="h-3.5 w-3.5" /> No credits · unlimited
           </span>
         </div>
@@ -155,9 +155,9 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
         <UploadDropzone compact />
         {account?.plan !== "pro" && <AdSlot compact slot="dashboard-top" />}
         <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
-          <div className="h-px flex-1 bg-white/10" />
+          <div className="h-px flex-1 bg-black/[0.04]" />
           <span>OR</span>
-          <div className="h-px flex-1 bg-white/10" />
+          <div className="h-px flex-1 bg-black/[0.04]" />
         </div>
         <LinkImport />
       </section>
@@ -172,19 +172,19 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
         </div>
 
         {error && (
-          <p className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </p>
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center rounded-2xl border border-white/10 py-16 text-muted-foreground">
+          <div className="flex items-center justify-center rounded-2xl border border-border py-16 text-muted-foreground">
             <RefreshCw className="mr-2 h-5 w-5 animate-spin" /> Loading your jobs…
           </div>
         ) : jobs.length === 0 ? (
-          <div className="dot-grid flex flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-white/15 px-6 py-20 text-center">
-            <div className="mb-1 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/25 to-violet-500/15 ring-1 ring-inset ring-indigo-400/25">
-              <Inbox className="h-7 w-7 text-indigo-300" />
+          <div className="dot-grid flex flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-border px-6 py-20 text-center">
+            <div className="mb-1 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f2efe9] ring-1 ring-inset ring-border">
+              <Inbox className="h-7 w-7 text-accent" />
             </div>
             <p className="font-semibold">Nothing here yet — and that's the fun part</p>
             <p className="max-w-md text-sm text-muted-foreground">

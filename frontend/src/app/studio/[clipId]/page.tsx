@@ -410,15 +410,15 @@ export default function StudioPage() {
   // ---------- render ----------
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#07070c] text-white">
+      <main className="flex min-h-screen items-center justify-center bg-background text-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading studio…
       </main>
     );
   }
   if (err || !clip) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#07070c] text-white">
-        <p className="text-white/60">{err || "Clip not found"}</p>
+      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background text-foreground">
+        <p className="text-muted-foreground">{err || "Clip not found"}</p>
         <Link href="/dashboard"><Button variant="outline">Back to Dashboard</Button></Link>
       </main>
     );
@@ -429,14 +429,14 @@ export default function StudioPage() {
   const stageRatio = ASPECTS[aspect].w / ASPECTS[aspect].h;
 
   return (
-    <main className="min-h-screen bg-[#07070c] text-white">
+    <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-7xl px-4 py-5">
         {/* top bar */}
         <div className="mb-4 flex items-center gap-3">
           <Link href="/dashboard"><Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4" /> Dashboard</Button></Link>
           <h1 className="text-lg font-black">
-            <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">Studio</span>
-            <span className="ml-2 text-sm font-normal text-white/50">live captions • browser editing</span>
+            <span className="text-foreground">Studio</span>
+            <span className="ml-2 text-sm font-normal text-muted-foreground">live captions • browser editing</span>
           </h1>
           {typeof clip.score === "number" && clip.score > 0 && (
             <div className="hidden items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 sm:flex" title="Virality Score — how likely this clip pops on Reels/Shorts/TikTok">
@@ -447,7 +447,7 @@ export default function StudioPage() {
                 </svg>
                 <span className="text-[9px] font-black">{Math.min(clip.score, 99)}</span>
               </span>
-              <span className="text-[11px] font-semibold text-emerald-300">VIRALITY</span>
+              <span className="text-[11px] font-semibold text-emerald-700">VIRALITY</span>
             </div>
           )}
           <div className="ml-auto flex gap-2">
@@ -458,7 +458,7 @@ export default function StudioPage() {
           </div>
         </div>
         {(exportMsg || cloudMsg) && (
-          <div className="mb-3 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80">
+          <div className="mb-3 rounded-xl border border-border bg-[#f2efe9] px-4 py-2 text-sm text-foreground/80">
             {exportMsg || cloudMsg}
           </div>
         )}
@@ -468,7 +468,7 @@ export default function StudioPage() {
           <div className="flex flex-col items-center gap-3">
             <div
               ref={stageRef}
-              className="relative overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl"
+              className="relative overflow-hidden rounded-2xl border border-border bg-black shadow-2xl"
               style={{ width: "100%", maxWidth: stageRatio >= 1 ? 720 : 405, aspectRatio: `${ASPECTS[aspect].w} / ${ASPECTS[aspect].h}` }}
               onClick={togglePlay}
             >
@@ -520,44 +520,44 @@ export default function StudioPage() {
               {!playing && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/20">
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/20 backdrop-blur">
-                    <Play className="h-8 w-8 text-white" />
+                    <Play className="h-8 w-8 text-foreground" />
                   </div>
                 </div>
               )}
 
               {/* trim bar */}
-              <div className="absolute inset-x-0 top-0 flex items-center gap-2 bg-black/50 px-3 py-1 text-[11px] text-white/80">
+              <div className="absolute inset-x-0 top-0 flex items-center gap-2 bg-black/50 px-3 py-1 text-[11px] text-foreground/80">
                 <Scissors className="h-3 w-3" />
                 <span>{fmtTime(trimStart)} – {fmtTime(trimEnd)}</span>
-                <span className="ml-auto text-white/50">{words.filter((_, i) => isWordCut(i)).length} words cut</span>
+                <span className="ml-auto text-muted-foreground">{words.filter((_, i) => isWordCut(i)).length} words cut</span>
               </div>
             </div>
 
             {/* playback + trim controls */}
-            <div className="flex w-full max-w-[720px] items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            <div className="flex w-full max-w-[720px] items-center gap-3 rounded-2xl border border-border bg-[#f2efe9] px-4 py-3">
               <Button variant="ghost" size="sm" onClick={togglePlay}>
                 {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
               </Button>
-              <div className="flex flex-1 flex-col gap-1 text-xs text-white/60">
+              <div className="flex flex-1 flex-col gap-1 text-xs text-muted-foreground">
                 <label className="flex items-center gap-2">Start
                   <input type="range" min={0} max={Math.max(1, trimEnd)} step={0.1} value={trimStart}
                     onChange={(e) => setTrimStart(Math.min(Number(e.target.value), trimEnd - 1))}
-                    className="flex-1 accent-violet-500" />
+                    className="flex-1 accent-neutral-800" />
                   <span className="w-10 text-right">{fmtTime(trimStart)}</span>
                 </label>
                 <label className="flex items-center gap-2">End
                   <input type="range" min={trimStart + 1} max={videoRef.current?.duration || 60} step={0.1} value={trimEnd}
                     onChange={(e) => setTrimEnd(Number(e.target.value))}
-                    className="flex-1 accent-violet-500" />
+                    className="flex-1 accent-neutral-800" />
                   <span className="w-10 text-right">{fmtTime(trimEnd)}</span>
                 </label>
               </div>
             </div>
 
             {/* transcript word chips */}
-            <div className="w-full max-w-[720px] rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="w-full max-w-[720px] rounded-2xl border border-border bg-[#f2efe9] p-4">
               <div className="mb-3 flex items-center gap-2">
-                <Type className="h-4 w-4 text-violet-400" />
+                <Type className="h-4 w-4 text-accent" />
                 <h3 className="text-sm font-bold">Transcript — tap a word to cut it</h3>
                 <Button variant="outline" size="sm" className="ml-auto" onClick={autoCutFillers}>
                   <Sparkles className="h-3 w-3" /> Auto-cut fillers
@@ -565,7 +565,7 @@ export default function StudioPage() {
                 <Button variant="ghost" size="sm" onClick={() => setRemoved([])}>Reset cuts</Button>
               </div>
               <div className="max-h-44 overflow-y-auto leading-8">
-                {words.length === 0 && <p className="text-white/40">No transcript found for this clip.</p>}
+                {words.length === 0 && <p className="text-muted-foreground">No transcript found for this clip.</p>}
                 {words.map((w, i) => (
                   <button
                     key={i}
@@ -573,7 +573,7 @@ export default function StudioPage() {
                     className={`mr-1 rounded px-1 text-[15px] transition ${
                       isWordCut(i)
                         ? "bg-red-500/25 text-red-300 line-through opacity-60"
-                        : "bg-white/5 text-white/90 hover:bg-violet-500/30"
+                        : "bg-[#f2efe9] text-foreground/90 hover:bg-black/[0.06]"
                     }`}
                   >
                     {w.word}
@@ -586,7 +586,7 @@ export default function StudioPage() {
           {/* ============ RIGHT: controls ============ */}
           <div className="flex flex-col gap-4">
             {/* styles */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="rounded-2xl border border-border bg-[#f2efe9] p-4">
               <h3 className="mb-3 text-sm font-bold">🎨 Caption style — tap = INSTANT change</h3>
               <div className="grid grid-cols-4 gap-2">
                 {STYLES.map((s) => (
@@ -594,7 +594,7 @@ export default function StudioPage() {
                     key={s.name}
                     onClick={() => setStyleName(s.name)}
                     className={`rounded-lg border px-2 py-2 text-[10px] font-bold uppercase tracking-wide transition ${
-                      s.name === styleName ? "border-violet-500 bg-violet-500/20 text-white" : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
+                      s.name === styleName ? "border-violet-500 bg-violet-500/20 text-foreground" : "border-border bg-[#f2efe9] text-muted-foreground hover:bg-black/[0.04]"
                     }`}
                     style={{ color: s.name === styleName ? s.color : undefined, WebkitTextStroke: s.name === styleName ? `0.6px ${s.stroke}` : undefined }}
                   >
@@ -605,11 +605,11 @@ export default function StudioPage() {
             </div>
 
             {/* text controls */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="rounded-2xl border border-border bg-[#f2efe9] p-4">
               <h3 className="mb-3 text-sm font-bold">🔤 Text</h3>
               <div className="space-y-3 text-sm">
                 <div>
-                  <p className="mb-1 text-white/50">Position</p>
+                  <p className="mb-1 text-muted-foreground">Position</p>
                   <div className="flex gap-2">
                     {(["top", "center", "bottom"] as const).map((p) => (
                       <Button key={p} variant={pos === p ? "default" : "outline"} size="sm" className="flex-1 capitalize" onClick={() => setPos(p)}>{p}</Button>
@@ -617,23 +617,23 @@ export default function StudioPage() {
                   </div>
                 </div>
                 <div>
-                  <p className="mb-1 text-white/50">Size — {Math.round(sizeScale * 100)}%</p>
+                  <p className="mb-1 text-muted-foreground">Size — {Math.round(sizeScale * 100)}%</p>
                   <input type="range" min={0.6} max={1.5} step={0.05} value={sizeScale}
-                    onChange={(e) => setSizeScale(Number(e.target.value))} className="w-full accent-violet-500" />
+                    onChange={(e) => setSizeScale(Number(e.target.value))} className="w-full accent-neutral-800" />
                 </div>
                 <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={caps} onChange={(e) => setCaps(e.target.checked)} className="accent-violet-500" />
+                  <input type="checkbox" checked={caps} onChange={(e) => setCaps(e.target.checked)} className="accent-neutral-800" />
                   ALL CAPS
                 </label>
               </div>
             </div>
 
             {/* frame controls */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="rounded-2xl border border-border bg-[#f2efe9] p-4">
               <h3 className="mb-3 text-sm font-bold"><Crop className="mr-1 inline h-4 w-4" /> Frame</h3>
               <div className="space-y-3 text-sm">
                 <div>
-                  <p className="mb-1 text-white/50">Aspect ratio</p>
+                  <p className="mb-1 text-muted-foreground">Aspect ratio</p>
                   <div className="grid grid-cols-2 gap-2">
                     {Object.keys(ASPECTS).map((a) => (
                       <Button key={a} variant={aspect === a ? "default" : "outline"} size="sm" onClick={() => setAspect(a)}>
@@ -643,14 +643,14 @@ export default function StudioPage() {
                   </div>
                 </div>
                 <div>
-                  <p className="mb-1 text-white/50">Layout</p>
+                  <p className="mb-1 text-muted-foreground">Layout</p>
                   <div className="flex gap-2">
                     <Button variant={layout === "full" ? "default" : "outline"} size="sm" className="flex-1" onClick={() => setLayout("full")}>Full frame</Button>
                     <Button variant={layout === "pad" ? "default" : "outline"} size="sm" className="flex-1" onClick={() => setLayout("pad")}>Blur pad</Button>
                   </div>
                 </div>
                 <div>
-                  <p className="mb-1 text-white/50">Reframe</p>
+                  <p className="mb-1 text-muted-foreground">Reframe</p>
                   <div className="flex gap-2">
                     {(["left", "center", "right"] as const).map((r) => (
                       <Button key={r} variant={reframe === r ? "default" : "outline"} size="sm" className="flex-1 capitalize" onClick={() => setReframe(r)}>{r}</Button>
@@ -663,7 +663,7 @@ export default function StudioPage() {
             {/* export panel */}
             <div className="rounded-2xl border border-violet-500/30 bg-violet-500/10 p-4">
               <h3 className="mb-2 text-sm font-bold"><Wand2 className="mr-1 inline h-4 w-4" /> Export</h3>
-              <p className="mb-3 text-xs text-white/70">
+              <p className="mb-3 text-xs text-foreground/70">
                 <b>Export here</b> = fastest, 100% in your browser (WebM), zero cloud. <b>Server render</b> = full MP4
                 quality with exact styles (takes ~1 min).
               </p>

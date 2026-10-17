@@ -92,7 +92,7 @@ export default function SchedulerPage() {
             Schedule posts, export a calendar, and organize clips into collections.
           </p>
         </div>
-        <Link href="/dashboard" className="text-sm text-violet-400 hover:underline">
+        <Link href="/dashboard" className="text-sm text-accent hover:underline">
           ← Dashboard
         </Link>
       </div>
@@ -112,12 +112,12 @@ export default function SchedulerPage() {
             <Download className="h-4 w-4" /> Calendar export (.ics)
           </Button>
           {schedules.length === 0 && (
-            <p className="rounded-xl border border-white/10 p-6 text-center text-sm text-muted-foreground">
+            <p className="rounded-xl border border-border p-6 text-center text-sm text-muted-foreground">
               Abhi koi schedule nahi. Clip card ke <b>More tools</b> se social copy banao → <b>Schedule</b> dabao.
             </p>
           )}
           {schedules.map((s) => (
-            <div key={s.id} className="flex items-center justify-between rounded-xl border border-white/10 p-4">
+            <div key={s.id} className="flex items-center justify-between rounded-xl border border-border p-4">
               <div>
                 <div className="flex items-center gap-2">
                   <Badge>{s.platform}</Badge>
@@ -145,12 +145,12 @@ export default function SchedulerPage() {
             </Button>
           </div>
           {collections.length === 0 && (
-            <p className="rounded-xl border border-white/10 p-6 text-center text-sm text-muted-foreground">
+            <p className="rounded-xl border border-border p-6 text-center text-sm text-muted-foreground">
               No collections yet — name one above to create it, then add clips from any clip card.
             </p>
           )}
           {collections.map((c) => (
-            <div key={c.id} className="flex items-center justify-between rounded-xl border border-white/10 p-4">
+            <div key={c.id} className="flex items-center justify-between rounded-xl border border-border p-4">
               <div>
                 <p className="text-sm font-medium">📁 {c.name}</p>
                 <p className="text-xs text-muted-foreground">{(c.clip_ids || []).length} clips</p>

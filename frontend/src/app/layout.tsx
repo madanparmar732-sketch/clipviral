@@ -76,17 +76,17 @@ const jsonLd = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <body className="min-h-screen">
 
         {children}
-        <footer className="border-t border-white/10 bg-[#07070c] px-6 py-8 text-center text-sm text-white/50">
+        <footer className="border-t border-border bg-background px-6 py-8 text-center text-sm text-muted-foreground">
           <div className="mb-2 flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
-            <Link href="/about" className="hover:text-white">About</Link>
-            <Link href="/pricing" className="hover:text-white">Pricing</Link>
-            <Link href="/privacy" className="hover:text-white">Privacy Policy</Link>
-            <Link href="/terms" className="hover:text-white">Terms of Service</Link>
-            <Link href="/contact" className="hover:text-white">Contact</Link>
+            <Link href="/about" className="hover:text-foreground">About</Link>
+            <Link href="/pricing" className="hover:text-foreground">Pricing</Link>
+            <Link href="/privacy" className="hover:text-foreground">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-foreground">Terms of Service</Link>
+            <Link href="/contact" className="hover:text-foreground">Contact</Link>
           </div>
           <p>© {new Date().getFullYear()} ClipViral — free AI video clips for everyone.</p>
         </footer>

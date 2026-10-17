@@ -167,37 +167,37 @@ function ClipCardMock({ className = "" }: { className?: string }) {
     <div className={`glass relative overflow-hidden rounded-3xl p-5 ${className}`}>
       <div className="flex gap-5">
         {/* phone */}
-        <div className="relative aspect-[9/16] w-36 shrink-0 overflow-hidden rounded-[1.4rem] border border-white/10 bg-gradient-to-b from-violet-950 via-slate-900 to-cyan-950">
-          <div className="absolute inset-x-6 top-8 h-24 rounded-2xl bg-gradient-to-br from-violet-500/40 to-cyan-400/30" />
+        <div className="relative aspect-[9/16] w-36 shrink-0 overflow-hidden rounded-[1.4rem] border border-border bg-[#131211]">
+          <div className="absolute inset-x-6 top-8 h-24 rounded-2xl bg-black/25" />
           <div className="absolute left-1/2 top-12 h-10 w-10 -translate-x-1/2 rounded-full bg-gradient-to-br from-amber-200/80 to-orange-300/70" />
-          <div className="absolute inset-x-2 bottom-11 text-center text-[10px] font-black uppercase leading-snug tracking-wide text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]">
+          <div className="absolute inset-x-2 bottom-11 text-center text-[10px] font-black uppercase leading-snug tracking-wide text-foreground drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]">
             THIS <span className="rounded bg-yellow-300 px-1 text-black">CHANGES</span> EVERYTHING
           </div>
           <div className="absolute bottom-2 right-2 space-y-1.5">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="h-5 w-5 rounded-full border border-white/20 bg-white/10" />
+              <div key={i} className="h-5 w-5 rounded-full border border-border bg-black/[0.04]" />
             ))}
           </div>
-          <span className="absolute left-2 top-2 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[9px] font-bold text-white">
+          <span className="absolute left-2 top-2 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[9px] font-bold text-foreground">
             🔥 92
           </span>
         </div>
         {/* right rail */}
         <div className="flex min-w-0 flex-1 flex-col justify-between py-1">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-indigo-300/80">Clip 1 of 6 · 0:34</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-accent/80">Clip 1 of 6 · 0:34</p>
             <p className="mt-1 line-clamp-2 text-sm font-bold leading-snug">The one decision that fixed his entire season</p>
           </div>
           <div className="mt-3 space-y-1.5">
             {[
-              ["Hook", 96, "bg-cyan-400"],
-              ["Flow", 88, "bg-indigo-400"],
-              ["Value", 91, "bg-violet-400"],
+              ["Hook", 96, "bg-foreground"],
+              ["Flow", 88, "bg-neutral-700"],
+              ["Value", 91, "bg-neutral-800"],
               ["Trend", 84, "bg-fuchsia-400"],
             ].map(([label, v, bar]) => (
               <div key={label as string} className="flex items-center gap-2 text-[10px]">
                 <span className="w-9 text-muted-foreground">{label}</span>
-                <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/10">
+                <div className="h-1 flex-1 overflow-hidden rounded-full bg-black/[0.04]">
                   <div className={`h-full rounded-full ${bar}`} style={{ width: `${v}%` }} />
                 </div>
                 <span className="tabular-nums text-muted-foreground">{v}</span>
@@ -206,15 +206,14 @@ function ClipCardMock({ className = "" }: { className?: string }) {
           </div>
           <div className="mt-3 flex flex-wrap gap-1.5 text-[10px]">
             {["#sports", "#motivation", "#podcast"].map((t) => (
-              <span key={t} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-indigo-200">
+              <span key={t} className="rounded-full border border-border bg-[#f2efe9] px-2 py-0.5 text-accent">
                 {t}
               </span>
             ))}
           </div>
         </div>
       </div>
-      <div className="glow-stop pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-indigo-500/20 blur-3xl" />
-    </div>
+          </div>
   );
 }
 
@@ -230,7 +229,7 @@ export default function LandingPage() {
         <div className="dot-grid pointer-events-none absolute inset-0" />
         <div className="container relative grid items-center gap-14 pb-20 pt-16 md:grid-cols-[1.05fr_0.95fr] md:pt-24">
           <div className="animate-fade-in">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-indigo-400/25 bg-indigo-500/10 px-4 py-1.5 text-sm text-indigo-200">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/[0.08] px-4 py-1.5 text-sm text-accent">
               <Sparkles className="h-4 w-4" />
               OpusClip-grade clipping — 100% free, no credits
             </div>
@@ -238,7 +237,7 @@ export default function LandingPage() {
             <h1 className="text-4xl font-extrabold leading-[1.05] tracking-tight md:text-6xl">
               Your long videos,
               <br />
-              <span className="gradient-text sheen bg-gradient-to-r from-indigo-300 via-fuchsia-300 to-cyan-300 bg-clip-text text-transparent">
+              <span className="gradient-text sheen bg-clip-text text-transparent">
                 cut for the algorithm
               </span>
               .
@@ -252,7 +251,7 @@ export default function LandingPage() {
 
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Link href="/signup">
-                <Button size="lg" className="px-8 shadow-lg shadow-indigo-500/30">
+                <Button size="lg" className="px-8 ">
                   Start clipping free <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
@@ -264,9 +263,9 @@ export default function LandingPage() {
             </div>
 
             <div className="mt-10 flex flex-wrap gap-x-8 gap-y-3 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-emerald-400" /> Unlimited videos & clips</span>
-              <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-emerald-400" /> No card, ever</span>
-              <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-emerald-400" /> 20 caption styles free</span>
+              <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-emerald-600" /> Unlimited videos & clips</span>
+              <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-emerald-600" /> No card, ever</span>
+              <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-emerald-600" /> 20 caption styles free</span>
             </div>
           </div>
 
@@ -280,23 +279,23 @@ export default function LandingPage() {
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
                   47-min podcast → done in 3m 41s, not 6 hours
                 </p>
-                <div className="bar-eq mt-2 flex h-4 items-end gap-1 text-cyan-300">
+                <div className="bar-eq mt-2 flex h-4 items-end gap-1 text-accent">
                   <span /><span /><span /><span /><span />
                 </div>
               </div>
-              <Bell className="h-4 w-4 shrink-0 animate-pulse text-indigo-300" />
+              <Bell className="h-4 w-4 shrink-0 animate-pulse text-accent" />
             </div>
           </div>
         </div>
 
         {/* platform marquee */}
-        <div className="border-y border-white/[0.06] bg-white/[0.02] py-5">
+        <div className="border-y border-border/70 bg-[#f6f4f0] py-5">
           <p className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground/70">
             Made for every short-form platform & source
           </p>
           <Marquee>
             {PLATFORMS.map((p) => (
-              <span key={p} className="rounded-full border border-white/[0.07] bg-white/[0.03] px-6 py-2 text-sm font-semibold text-white/60">
+              <span key={p} className="rounded-full border border-border bg-[#f2efe9] px-6 py-2 text-sm font-semibold text-muted-foreground">
                 {p}
               </span>
             ))}
@@ -337,28 +336,28 @@ export default function LandingPage() {
           {FEATURES.map((feature, i) => (
             <div
               key={feature.title}
-              className={`card-lift group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.04] p-7 ${i === 0 ? "sm:col-span-2 lg:col-span-1" : ""}`}
+              className={`card-lift group relative overflow-hidden rounded-2xl border border-border bg-[#f2efe9] p-7 ${i === 0 ? "sm:col-span-2 lg:col-span-1" : ""}`}
             >
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-indigo-400/20 bg-gradient-to-br from-indigo-500/25 to-violet-500/15 transition-transform group-hover:scale-110">
-                <feature.icon className="h-6 w-6 text-indigo-300" />
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-[#f2efe9]">
+                <feature.icon className="h-6 w-6 text-accent" />
               </div>
               <h3 className="text-lg font-semibold">{feature.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{feature.text}</p>
               <ul className="mt-4 space-y-1.5">
                 {feature.bullets.map((b) => (
-                  <li key={b} className="flex items-start gap-2 text-xs text-white/70">
-                    <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" /> {b}
+                  <li key={b} className="flex items-start gap-2 text-xs text-foreground/70">
+                    <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" /> {b}
                   </li>
                 ))}
               </ul>
-              <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-indigo-500/10 blur-3xl transition-opacity group-hover:opacity-100" />
+              <div className="pointer-events-none absolute -right-16 -top-16 hidden" />
             </div>
           ))}
         </div>
       </section>
 
       {/* ---------------- HOW IT WORKS ---------------- */}
-      <section id="how-it-works" className="border-y border-white/[0.07] bg-white/[0.02] py-24">
+      <section id="how-it-works" className="border-y border-border bg-[#f6f4f0] py-24">
         <div className="container">
           <div className="mx-auto max-w-2xl text-center">
             <p className="eyebrow mb-3">Workflow</p>
@@ -367,10 +366,10 @@ export default function LandingPage() {
 
           <div className="relative mt-14 grid gap-8 md:grid-cols-3">
             {/* connective line */}
-            <div className="absolute left-[16%] right-[16%] top-12 hidden h-px bg-gradient-to-r from-indigo-400/40 via-fuchsia-400/40 to-cyan-400/40 md:block" />
+            <div className="absolute left-[16%] right-[16%] top-12 hidden h-px bg-border md:block" />
             {STEPS.map((item) => (
-              <div key={item.step} className="card-lift relative rounded-2xl border border-white/[0.08] bg-card p-8">
-                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-indigo-400/30 bg-background text-sm font-black text-indigo-300">
+              <div key={item.step} className="card-lift relative rounded-2xl border border-border bg-card p-8">
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-accent/30 bg-background text-sm font-black text-accent">
                   {item.step}
                 </div>
                 <h3 className="text-xl font-semibold">{item.title}</h3>
@@ -386,7 +385,7 @@ export default function LandingPage() {
         <div>
           <p className="eyebrow mb-3">Studio</p>
           <h2 className="text-3xl font-bold md:text-4xl">
-            Captions that hit like <span className="gradient-text-cyan">CapCut</span>, edited like a doc
+            Captions that hit like CapCut, edited like a doc
           </h2>
           <p className="mt-4 leading-relaxed text-muted-foreground">
             Every word is a token you can click. Restyle, re-color, re-time, translate — then export
@@ -400,20 +399,20 @@ export default function LandingPage() {
               "Censor-beep any word, AI thumbnail with clickbait title",
               "Translate captions + export per-platform aspect packs",
             ].map((t) => (
-              <li key={t} className="flex items-start gap-2 text-white/80">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" /> {t}
+              <li key={t} className="flex items-start gap-2 text-foreground/80">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /> {t}
               </li>
             ))}
           </ul>
           <div className="mt-8 flex flex-wrap gap-3 text-xs">
             {["Collections", "Share links", "Brand kits", "Scheduler + .ics", "Webhooks", "Duplicate & tweak"].map((c) => (
-              <span key={c} className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-white/70">
-                {c === "Scheduler + .ics" ? <CalendarClock className="h-3.5 w-3.5 text-cyan-300" /> :
-                 c === "Share links" ? <Eye className="h-3.5 w-3.5 text-cyan-300" /> :
-                 c === "Collections" ? <Layers className="h-3.5 w-3.5 text-cyan-300" /> :
-                 c === "Brand kits" ? <Scissors className="h-3.5 w-3.5 text-cyan-300" /> :
-                 c === "Webhooks" ? <Link2 className="h-3.5 w-3.5 text-cyan-300" /> :
-                 <Languages className="h-3.5 w-3.5 text-cyan-300" />}
+              <span key={c} className="flex items-center gap-1.5 rounded-full border border-border bg-[#f2efe9] px-3 py-1.5 text-foreground/70">
+                {c === "Scheduler + .ics" ? <CalendarClock className="h-3.5 w-3.5 text-accent" /> :
+                 c === "Share links" ? <Eye className="h-3.5 w-3.5 text-accent" /> :
+                 c === "Collections" ? <Layers className="h-3.5 w-3.5 text-accent" /> :
+                 c === "Brand kits" ? <Scissors className="h-3.5 w-3.5 text-accent" /> :
+                 c === "Webhooks" ? <Link2 className="h-3.5 w-3.5 text-accent" /> :
+                 <Languages className="h-3.5 w-3.5 text-accent" />}
                 {c}
               </span>
             ))}
@@ -423,7 +422,7 @@ export default function LandingPage() {
         <div className="relative">
           <ClipCardMock className="rotate-1" />
           <div className="glass absolute -bottom-6 -left-4 hidden rounded-xl px-4 py-3 text-xs shadow-xl md:block">
-            <p className="font-semibold text-cyan-300">HyperFinder: 480s scored in 1.2s</p>
+            <p className="font-semibold text-accent">HyperFinder: 480s scored in 1.2s</p>
             <p className="text-muted-foreground">top 6 clips auto-ranked</p>
           </div>
         </div>
@@ -431,16 +430,16 @@ export default function LandingPage() {
 
       {/* ---------------- COMPARISON ---------------- */}
       <section className="container pb-24">
-        <div className="ring-glow overflow-hidden rounded-3xl border border-indigo-400/20 bg-gradient-to-b from-indigo-500/[0.07] to-transparent">
-          <div className="grid grid-cols-4 gap-2 border-b border-white/[0.07] bg-white/[0.03] px-6 py-5 text-sm font-semibold md:px-10">
+        <div className="ring-glow overflow-hidden rounded-3xl border border-border bg-card">
+          <div className="grid grid-cols-4 gap-2 border-b border-border bg-[#f2efe9] px-6 py-5 text-sm font-semibold md:px-10">
             <span className="text-muted-foreground">What you get</span>
             <span className="text-center"><span className="gradient-text">ClipViral</span></span>
             <span className="hidden text-center text-muted-foreground sm:block">Editing by hand</span>
             <span className="text-center text-muted-foreground">Paid clipper</span>
           </div>
           {COMPARE_ROWS.map(([label, a, b, c], i) => (
-            <div key={label} className={`grid grid-cols-4 items-center gap-2 px-6 py-3.5 text-sm md:px-10 ${i % 2 ? "bg-white/[0.015]" : ""}`}>
-              <span className="text-white/85">{label}</span>
+            <div key={label} className={`grid grid-cols-4 items-center gap-2 px-6 py-3.5 text-sm md:px-10 ${i % 2 ? "bg-[#f6f4f0]" : ""}`}>
+              <span className="text-foreground/90">{label}</span>
               <Cell v={a} strong />
               <span className="hidden sm:block"><Cell v={b} /></span>
               <Cell v={c} />
@@ -456,9 +455,9 @@ export default function LandingPage() {
 
       {/* ---------------- UPLOAD / CTA ---------------- */}
       <section id="upload" className="container py-20">
-        <div className="ring-glow mx-auto max-w-3xl rounded-3xl border border-indigo-400/20 bg-gradient-to-b from-indigo-500/10 to-violet-500/5 p-8 text-center md:p-12">
-          <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 shadow-lg shadow-indigo-500/30">
-            <Clapperboard className="h-7 w-7 text-white" />
+        <div className="ring-glow mx-auto max-w-3xl rounded-3xl border border-border bg-card p-8 text-center md:p-12">
+          <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#191817]">
+            <Clapperboard className="h-7 w-7 text-foreground" />
           </div>
           <h2 className="text-3xl font-bold md:text-4xl">Drop your first video</h2>
           <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
@@ -477,10 +476,10 @@ export default function LandingPage() {
           <h2 className="text-center text-3xl font-bold md:text-4xl">Straight answers</h2>
           <div className="mt-10 space-y-3">
             {FAQS.map((f) => (
-              <details key={f.q} className="group rounded-2xl border border-white/[0.08] bg-white/[0.03] px-6 py-4 open:bg-white/[0.05]">
+              <details key={f.q} className="group rounded-2xl border border-border bg-[#f2efe9] px-6 py-4 open:bg-[#efece6]">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-semibold md:text-base">
                   {f.q}
-                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-white/10 text-white/60 transition-transform group-open:rotate-45">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-border text-muted-foreground transition-transform group-open:rotate-45">
                     +
                   </span>
                 </summary>
@@ -492,7 +491,7 @@ export default function LandingPage() {
       </section>
 
       {/* ---------------- FINAL CTA ---------------- */}
-      <section className="border-t border-white/[0.07] py-20">
+      <section className="border-t border-border py-20">
         <div className="container flex flex-col items-center gap-6 text-center">
           <h2 className="max-w-2xl text-3xl font-bold md:text-5xl">
             Stop clipping at 1am.
@@ -501,7 +500,7 @@ export default function LandingPage() {
           </h2>
           <div className="flex flex-wrap justify-center gap-4">
             <Link href="/signup">
-              <Button size="lg" className="px-9 shadow-lg shadow-indigo-500/30">
+              <Button size="lg" className="px-9 ">
                 Create free account <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
@@ -513,12 +512,12 @@ export default function LandingPage() {
       </section>
 
       {/* ---------------- FOOTER ---------------- */}
-      <footer className="border-t border-white/[0.07] bg-[#06060b] py-12">
+      <footer className="border-t border-border bg-[#f4f2ee] py-12">
         <div className="container grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
             <div className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 shadow-lg shadow-indigo-500/25">
-                <Clapperboard className="h-5 w-5 text-white" />
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#191817]">
+                <Clapperboard className="h-5 w-5 text-foreground" />
               </span>
               <span className="text-lg font-bold tracking-tight">
                 Clip<span className="gradient-text">Viral</span>
@@ -535,7 +534,7 @@ export default function LandingPage() {
             { title: "Legal", links: [["About", "/about"], ["Privacy", "/privacy"], ["Terms", "/terms"], ["Contact", "/contact"]] },
           ].map((col) => (
             <div key={col.title}>
-              <p className="text-xs font-semibold uppercase tracking-widest text-white/45">{col.title}</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{col.title}</p>
               <ul className="mt-3 space-y-2 text-sm">
                 {col.links.map(([label, href]) => (
                   <li key={label}>
@@ -546,9 +545,9 @@ export default function LandingPage() {
             </div>
           ))}
         </div>
-        <div className="container mt-10 flex flex-col items-center justify-between gap-3 border-t border-white/[0.06] pt-6 text-xs text-muted-foreground md:flex-row">
+        <div className="container mt-10 flex flex-col items-center justify-between gap-3 border-t border-border/70 pt-6 text-xs text-muted-foreground md:flex-row">
           <p>© {new Date().getFullYear()} ClipViral — every feature free, for every creator.</p>
-          <p className="flex items-center gap-1.5"><Gauge className="h-3.5 w-3.5 text-emerald-400" /> Virality Score™ by HyperFinder engine</p>
+          <p className="flex items-center gap-1.5"><Gauge className="h-3.5 w-3.5 text-emerald-600" /> Virality Score™ by HyperFinder engine</p>
         </div>
       </footer>
     </main>
@@ -559,9 +558,9 @@ function Cell({ v, strong = false }: { v: boolean | string; strong?: boolean }) 
   return (
     <span className={`flex items-center justify-center text-center ${strong ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
       {v === true ? (
-        <Check className="h-4 w-4 text-emerald-400" />
+        <Check className="h-4 w-4 text-emerald-600" />
       ) : v === false ? (
-        <X className="h-4 w-4 text-red-400/80" />
+        <X className="h-4 w-4 text-red-600/80" />
       ) : (
         <span className="truncate text-xs md:text-sm">{v}</span>
       )}

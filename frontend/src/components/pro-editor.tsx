@@ -66,7 +66,7 @@ export default function ProEditor({
       {open && (
         <div className="space-y-4 rounded-lg border border-violet-400/25 bg-violet-500/5 p-3">
           {!isPro && (
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-300">
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-600">
               This is the Pro Editor. <Link className="underline" href="/pricing">Upgrade — ₹299/mo</Link> to
               unlock all styles, 1080p, SFX and no watermark. (Free preview: 3 styles.)
             </div>
@@ -86,10 +86,10 @@ export default function ProEditor({
                     className={
                       "rounded px-1.5 py-1 text-[10px] font-semibold transition-colors " +
                       (style === s
-                        ? "bg-violet-500 text-white"
+                        ? "bg-neutral-800 text-white"
                         : locked
-                        ? "bg-white/5 text-muted-foreground line-through"
-                        : "bg-white/10 hover:bg-white/20")
+                        ? "bg-[#f2efe9] text-muted-foreground line-through"
+                        : "bg-black/[0.05] hover:bg-black/[0.09]")
                     }
                   >
                     {locked ? "🔒 " : ""}
@@ -112,7 +112,7 @@ export default function ProEditor({
                 max={Math.max(2, trimEnd - 2)}
                 value={trimStart}
                 onChange={(e) => setTrimStart(Number(e.target.value))}
-                className="w-1/2 accent-violet-500"
+                className="w-1/2 accent-neutral-800"
               />
               <input
                 type="range"
@@ -120,7 +120,7 @@ export default function ProEditor({
                 max={(clip.end_seconds ?? 30) as number}
                 value={trimEnd}
                 onChange={(e) => setTrimEnd(Number(e.target.value))}
-                className="w-1/2 accent-violet-500"
+                className="w-1/2 accent-neutral-800"
               />
             </div>
           </div>
@@ -139,7 +139,7 @@ export default function ProEditor({
                 onClick={() => (isPro ? setter(!value) : null)}
                 className={
                   "rounded-full border px-3 py-1 " +
-                  (value ? "border-violet-400 bg-violet-500/25 text-white" : "border-white/15 text-muted-foreground")
+                  (value ? "border-accent/40 bg-accent/10 text-foreground" : "border-border text-muted-foreground")
                 }
               >
                 {label}
@@ -148,7 +148,7 @@ export default function ProEditor({
             <button
               type="button"
               onClick={() => (isPro ? setReframe(reframe === "face" ? "center" : "face") : null)}
-              className="rounded-full border border-white/15 px-3 py-1 text-muted-foreground"
+              className="rounded-full border border-border px-3 py-1 text-muted-foreground"
             >
               Reframe: {reframe === "face" ? "🎯 face" : "⬜ center"}
             </button>
@@ -158,8 +158,8 @@ export default function ProEditor({
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scissors className="h-4 w-4" />}
             {isPro ? "Re-render in full quality" : "Preview (upgrade to apply)"}
           </Button>
-          {msg && <p className="text-xs text-emerald-400">{msg}</p>}
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          {msg && <p className="text-xs text-emerald-600">{msg}</p>}
+          {error && <p className="text-xs text-red-600">{error}</p>}
           <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
             <Sparkles className="h-3 w-3" /> Re-render uses your ORIGINAL source copy — no quality loss.
           </p>

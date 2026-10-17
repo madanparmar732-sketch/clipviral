@@ -64,18 +64,18 @@ function LoginForm() {
       </div>
 
       {error && (
-        <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </p>
       )}
 
-      <Button type="submit" className="w-full shadow-lg shadow-indigo-500/25" disabled={busy}>
+      <Button type="submit" className="w-full " disabled={busy}>
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Log in"}
       </Button>
 
       <p className="text-center text-sm text-muted-foreground">
         No account yet?{" "}
-        <Link href="/signup" className="text-violet-300 underline-offset-4 hover:underline">
+        <Link href="/signup" className="text-accent underline-offset-4 hover:underline">
           Sign up free
         </Link>
       </p>
@@ -87,11 +87,11 @@ export default function LoginPage() {
   return (
     <main className="hero-glow grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
       {/* brand panel */}
-      <div className="relative hidden flex-col justify-between overflow-hidden border-r border-white/[0.06] bg-white/[0.02] p-12 lg:flex">
+      <div className="relative hidden flex-col justify-between overflow-hidden border-r border-border/70 bg-[#f6f4f0] p-12 lg:flex">
         <div className="dot-grid pointer-events-none absolute inset-0" />
         <Link href="/" className="relative flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 shadow-lg shadow-indigo-500/25">
-            <Clapperboard className="h-5 w-5 text-white" />
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#191817]">
+            <Clapperboard className="h-5 w-5 text-foreground" />
           </span>
           <span className="text-lg font-bold tracking-tight">
             Clip<span className="gradient-text">Viral</span>
@@ -105,7 +105,7 @@ export default function LoginPage() {
           <ul className="mt-6 space-y-2.5 text-sm text-muted-foreground">
             {["Virality-scored 9:16 clips in minutes", "Word-by-word animated captions — all 20 styles free", "No credits, no limits, no card"].map((t) => (
               <li key={t} className="flex items-center gap-2.5">
-                <Check className="h-4 w-4 shrink-0 text-emerald-400" /> {t}
+                <Check className="h-4 w-4 shrink-0 text-emerald-600" /> {t}
               </li>
             ))}
           </ul>

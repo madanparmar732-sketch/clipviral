@@ -3,34 +3,33 @@
 @tailwind utilities;
 
 /* ============================================================================
-   ClipViral design system — "Midnight Studio v2"
-   Deep navy-black canvas, one confident indigo accent, hairline borders,
-   soft glows, marquee/karaoke motion. Linear/Vercel-grade SaaS look that
-   makes video previews pop. All components read these tokens, so the whole
-   app re-skins from this one file.
+   ClipViral design system — "Warm Paper" v3
+   Copy of the Notion/Anthropic premium grammar (2026): cream canvas, real
+   serif display type, near-black body text, hairline warm borders, ONE calm
+   accent, zero glows / zero gradients / zero neon. Cards = paper on paper.
    ========================================================================== */
 @layer base {
   :root {
-    --background: 228 45% 5%;
-    --foreground: 210 40% 98%;
-    --card: 226 32% 9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 226 32% 9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 245 85% 67%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 226 24% 14%;
-    --secondary-foreground: 210 30% 92%;
-    --muted: 226 24% 13%;
-    --muted-foreground: 220 12% 64%;
-    --accent: 190 95% 45%;
-    --accent-foreground: 228 45% 6%;
-    --destructive: 0 72% 51%;
+    --background: 45 33% 97%;
+    --foreground: 40 8% 12%;
+    --card: 45 40% 99%;
+    --card-foreground: 40 8% 12%;
+    --popover: 45 40% 99%;
+    --popover-foreground: 40 8% 12%;
+    --primary: 40 9% 11%;
+    --primary-foreground: 45 33% 98%;
+    --secondary: 42 25% 93%;
+    --secondary-foreground: 40 9% 18%;
+    --muted: 42 25% 93%;
+    --muted-foreground: 40 6% 44%;
+    --accent: 252 55% 57%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 45%;
     --destructive-foreground: 0 0% 100%;
-    --border: 226 22% 16%;
-    --input: 226 22% 16%;
-    --ring: 245 85% 67%;
-    --radius: 0.75rem;
+    --border: 40 18% 88%;
+    --input: 40 18% 86%;
+    --ring: 252 55% 57%;
+    --radius: 0.625rem;
   }
 
   * {
@@ -43,16 +42,20 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    /* the canvas: near-black with a faint cool cast, not flat #000 */
-    background-image: radial-gradient(52rem 32rem at 50% -10%, hsl(245 85% 67% / 0.09), transparent 60%),
-      radial-gradient(40rem 28rem at 90% 8%, hsl(190 95% 45% / 0.05), transparent 60%);
-    background-repeat: no-repeat;
+    /* warm paper, no glow — the "expensive" part is the calm */
+    background-color: hsl(45 33% 97%);
   }
 
-  /* crisp, quiet typography */
-  h1, h2, h3, h4 {
-    @apply font-bold tracking-tight;
+  /* display type: real serif, like Notion/Anthropic headlines */
+  h1, h2, h3 {
+    font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    font-weight: 600;
+    letter-spacing: -0.015em;
     text-wrap: balance;
+  }
+
+  h4 {
+    @apply font-bold tracking-tight;
   }
 
   p {
@@ -60,7 +63,7 @@
   }
 
   ::selection {
-    background: hsl(245 85% 67% / 0.35);
+    background: hsl(252 55% 57% / 0.18);
   }
 
   ::-webkit-scrollbar {
@@ -68,12 +71,12 @@
     height: 10px;
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(226 20% 22%);
+    background: hsl(40 12% 78%);
     border-radius: 8px;
-    border: 2px solid hsl(228 45% 5%);
+    border: 2px solid hsl(45 33% 97%);
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(226 20% 30%);
+    background: hsl(40 10% 65%);
   }
   ::-webkit-scrollbar-track {
     background: transparent;
@@ -82,70 +85,65 @@
 
 /* ---- Utilities ---- */
 @layer utilities {
+  /* the old gradient headline trick — now just emphasis, no neon */
   .gradient-text {
-    @apply bg-gradient-to-r from-indigo-300 via-violet-300 to-fuchsia-300 bg-clip-text text-transparent;
+    @apply text-foreground;
   }
-
   .gradient-text-cyan {
-    @apply bg-gradient-to-r from-cyan-300 via-sky-300 to-indigo-300 bg-clip-text text-transparent;
+    @apply text-accent;
   }
 
   .gradient-border {
-    background: linear-gradient(135deg, hsl(245 85% 67% / 0.35), hsl(190 95% 45% / 0.28));
+    background: hsl(var(--border));
   }
 
-  /* the card treatment: hairline border + faint top sheen = premium depth */
+  /* card = paper on paper: flat surface, hairline border, tiny shadow */
   .glass {
-    @apply border border-white/[0.08] bg-white/[0.04] backdrop-blur-xl;
-    box-shadow: inset 0 1px 0 0 hsl(210 40% 98% / 0.06), 0 20px 50px -30px hsl(245 85% 67% / 0.25);
+    @apply rounded-2xl border border-border bg-card;
+    box-shadow: 0 1px 2px 0 rgb(31 30 28 / 0.04), 0 1px 3px 0 rgb(31 30 28 / 0.06);
   }
 
   .card-lift {
-    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
   }
   .card-lift:hover {
-    transform: translateY(-2px);
-    border-color: hsl(245 85% 67% / 0.35);
-    box-shadow: 0 24px 60px -30px hsl(245 85% 67% / 0.35);
+    border-color: hsl(40 14% 78%);
+    box-shadow: 0 2px 6px rgb(31 30 28 / 0.06), 0 10px 28px -18px rgb(31 30 28 / 0.18);
   }
 
+  /* keep the class name, strip the drama: subtle warm band, no glow */
   .hero-glow {
-    background:
-      radial-gradient(58% 42% at 50% -4%, hsl(245 85% 67% / 0.16) 0%, transparent 100%),
-      radial-gradient(36% 32% at 84% 12%, hsl(190 95% 45% / 0.08) 0%, transparent 100%);
+    background: linear-gradient(180deg, hsl(45 36% 98.5%) 0%, hsl(45 33% 97%) 340px);
   }
 
-  /* faint dotted grid — the "engineered product" backdrop */
   .dot-grid {
-    background-image: radial-gradient(hsl(220 20% 70% / 0.13) 1px, transparent 1px);
+    background-image: radial-gradient(hsl(40 15% 60% / 0.14) 1px, transparent 1px);
     background-size: 22px 22px;
     mask-image: radial-gradient(60% 55% at 50% 40%, black 30%, transparent 100%);
     -webkit-mask-image: radial-gradient(60% 55% at 50% 40%, black 30%, transparent 100%);
   }
 
-  /* small uppercase section labels — the "serious product" detail */
+  /* small uppercase section labels */
   .eyebrow {
-    @apply text-xs font-semibold uppercase tracking-[0.18em] text-indigo-300/90;
+    @apply text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground;
   }
 
   .ring-glow {
-    box-shadow: 0 0 0 1px hsl(245 85% 67% / 0.35), 0 8px 40px -12px hsl(245 85% 67% / 0.45);
+    @apply border border-border;
   }
 
-  /* edge-fade masks for marquees */
   .mask-fade-x {
     mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
     -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
   }
 
-  /* animated gradient sheen for headline text or CTA bands */
   .sheen {
-    background-size: 220% 100%;
-    animation: sheen 7s linear infinite;
+    /* no animated gradient anymore — kept so old classnames are harmless */
   }
 
   .glow-stop {
-    animation: glowPulse 2.6s ease-in-out infinite;
+    /* removed by design: no pulsing light blobs on paper */
+    animation: none;
   }
 
   .bar-eq span {
@@ -166,14 +164,9 @@
   to { transform: translateX(-50%); }
 }
 
-@keyframes sheen {
-  from { background-position: 0% 0; }
-  to { background-position: 220% 0; }
-}
-
 @keyframes glowPulse {
-  0%, 100% { opacity: 0.55; }
-  50% { opacity: 1; }
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0; }
 }
 
 @keyframes eq {
@@ -187,7 +180,6 @@
   100% { transform: scale(1); }
 }
 
-/* karaoke caption word that just got "spoken" in demos */
 .karaoke-live {
   animation: wordPop 0.35s ease-out both;
 }
