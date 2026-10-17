@@ -336,7 +336,13 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
 
         # ---------- Step 3: GPT-4o highlight detection ----------
         update_job(job_id, stage="finding_viral_moments", progress=40)
-        clips = highlights.detect_highlights(transcript, duration, prefs=opts)
+        # media_path lets HyperFinder run its audio-energy pass (OpusClip's
+        # "emotional peaks" signal) — run it on the 16kHz mono audio we already
+        # extracted (decodes ~500x realtime; on the video file it would be slow).
+        audio_for_energy = os.path.join(workdir, "audio.mp3")
+        if not os.path.exists(audio_for_energy):
+            audio_for_energy = source_path
+        clips = highlights.detect_highlights(transcript, duration, prefs=opts, media_path=audio_for_energy)
         if not clips:
             raise RuntimeError("The AI could not find any good moments to clip.")
         logger.info("Job %s: AI picked %d moments", job_id, len(clips))
@@ -371,8 +377,11 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
             words_path = os.path.join(workdir, f"clip_{index + 1}.words.json")
 
             # ---- AUTOMATIC PAUSE-REMOVAL: dead air gets cut out ----
+            # From transcript gaps = instant (an ffmpeg silencedetect pass per clip
+            # used to re-decode the video — the biggest hidden slowdown).
             try:
-                silences = video_processor.detect_silences(source_path, clip["start"], clip["end"])
+                silences = video_processor.silences_from_words(
+                    transcript.get("words") or [], clip["start"], clip["end"])
             except Exception:
                 silences = []
             if opts.get("remove_fillers"):

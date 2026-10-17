@@ -107,9 +107,14 @@ def _smart_crop_x(source_path: str, start: float, end: float, width: int, height
     try:
         import cv2  # lazy: only loaded when a clip is actually rendered
 
-        cascade = cv2.CascadeClassifier(
-            cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-        )
+        # LOADING THE CASCADE COSTS 1-2s — do it ONCE per process, reuse per clip.
+        global _FACE_CASCADE
+        cascade = globals().get("_FACE_CASCADE")
+        if cascade is None:
+            cascade = cv2.CascadeClassifier(
+                cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+            )
+            globals()["_FACE_CASCADE"] = cascade
         cap = cv2.VideoCapture(source_path)
         face_xs: list[float] = []
         span = max(0.2, end - start)
@@ -279,6 +284,32 @@ def detect_silences(path: str, start: float, end: float,
             except ValueError:
                 pass
             s_start = None
+    return silences
+
+
+def silences_from_words(words: list[dict], start: float, end: float,
+                        min_gap: float = 0.62, max_gap: float = 2.5) -> list[tuple[float, float]]:
+    """Dead air from the transcript's own gaps — computed in microseconds instead
+    of a full ffmpeg decode pass (detect_silences). Big render-speed win.
+    A gap must be >= min_gap to count; long pauses are trimmed to max_gap so we
+    keep a beat of silence but never dead air."""
+    inside: list[tuple[float, float]] = []
+    for w in words or []:
+        try:
+            s, e = float(w["start"]), float(w["end"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if e > start and s < end:
+            inside.append((max(s, start), min(e, end)))
+    if not inside:
+        return []
+    inside.sort()
+    silences: list[tuple[float, float]] = []
+    prev_end = inside[0][1]
+    for s, e in inside[1:]:
+        if s - prev_end >= min_gap:
+            silences.append((prev_end, min(s, prev_end + max_gap)))
+        prev_end = max(prev_end, e)
     return silences
 
 

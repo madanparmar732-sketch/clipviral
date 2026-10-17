@@ -11,6 +11,7 @@ whole video instead of tiling from 0.
 import json
 import logging
 import re
+import time
 
 from app.config import settings
 from app.services.ai import chat_model, make_ai_client
@@ -66,16 +67,30 @@ EXAMPLE of great picks for a 10-minute interview:
 Output JSON only. No markdown, no commentary."""
 
 
-def _build_user_prompt(transcript_segments: list[dict], duration: float, prefs: dict | None = None) -> str:
+def _build_user_prompt(transcript_segments: list[dict], duration: float, prefs: dict | None = None,
+                       candidates: list[dict] | None = None) -> str:
     prefs = prefs or {}
     lines = []
+    cand_rounds = {round(float(c["start"])) for c in (candidates or [])}
     for seg in transcript_segments:
         text = (seg.get("text") or "").strip()
         if not text:
             continue
-        lines.append(f"[{seg['start']:.1f}-{seg['end']:.1f}] {text}")
+        star = " ★" if round(float(seg.get("start", 0))) in cand_rounds else ""
+        lines.append(f"[{seg['start']:.1f}-{seg['end']:.1f}]{star} {text}")
     body = "\n".join(lines)
     extras = []
+    if candidates:
+        top = sorted(candidates, key=lambda c: -c["score"])[:10]
+        win = "\n".join(
+            f"- [{c['start']:.1f}-{c['end']:.1f}] score {c['score']} "
+            f"(hook {c['hook']}, flow {c['flow']}, value {c['value']}, trend {c['trend']}): {c['text'][:110]}"
+            for c in top
+        )
+        extras.append(
+            "Our fast virality engine pre-scored these windows (★ marks them in the "
+            "transcript) — treat them as strong hints:\n" + win
+        )
     if prefs.get("genre"):
         extras.append(f"Video genre: {prefs['genre']}.")
     if prefs.get("topic_keywords"):
@@ -249,8 +264,14 @@ def _snap_to_sentences(clips: list[dict], segments: list[dict], duration: float)
     return clips
 
 
-def detect_highlights(transcript: dict, duration: float, n: int | None = None, prefs: dict | None = None) -> list[dict]:
-    """Ask the AI for the top viral moments. Smart fallback if the AI is unreachable."""
+def detect_highlights(transcript: dict, duration: float, n: int | None = None, prefs: dict | None = None,
+                      media_path: str | None = None) -> list[dict]:
+    """Ask the AI for the top viral moments. Smart fallback if the AI is unreachable.
+
+    SPEED: a local virality engine (moment_finder) pre-scores candidate windows in
+    ~1s (audio energy + hook/emotion/trend linguistics + pacing — the same signals
+    OpusClip's ClipBasic/ClipAnything use), then the LLM just confirms/refines.
+    """
     prefs = prefs or {}
     segments = transcript.get("segments") or []
     # OpusClip parity: range {startSec,endSec} — only curate inside that window
@@ -278,6 +299,23 @@ def detect_highlights(transcript: dict, duration: float, n: int | None = None, p
     if not segments or duration <= 0:
         return []
 
+    # ---- HyperFinder: local virality engine (~1s, any video length) ----
+    finder_cands: list[dict] = []
+    try:
+        from app.services import moment_finder
+
+        t_finder = time.time()
+        finder_cands = moment_finder.build_candidates(
+            segments,
+            n=n,
+            min_len=float(clip_dur[0] if clip_dur else settings.clip_min_seconds),
+            max_len=float(clip_dur[1] if clip_dur else settings.clip_max_seconds),
+            media_path=media_path,
+        )
+        logger.info("HyperFinder scored %d candidate windows in %.2fs", len(finder_cands), time.time() - t_finder)
+    except Exception:
+        logger.exception("moment_finder failed (non-fatal) — LLM only")
+
     # NOTE: .replace() not .format() — the prompt contains literal JSON braces.
     prompt = (
         SYSTEM_PROMPT
@@ -286,7 +324,7 @@ def detect_highlights(transcript: dict, duration: float, n: int | None = None, p
         .replace("{max_s}", str(clip_dur[1] if clip_dur else settings.clip_max_seconds))
         .replace("{duration}", f"{duration:.1f}")
     )
-    user_prompt = _build_user_prompt(segments, duration, prefs=prefs)
+    user_prompt = _build_user_prompt(segments, duration, prefs=prefs, candidates=finder_cands)
 
     clips: list[dict] = []
     try:
@@ -310,7 +348,22 @@ def detect_highlights(transcript: dict, duration: float, n: int | None = None, p
         clips = []
 
     if not clips:
-        clips = _fallback_clips(segments, duration, n)
+        # Prefer the pre-scored HyperFinder windows (already viral-shaped);
+        # the old segment fallback is the last resort.
+        if finder_cands:
+            clips = [
+                {
+                    "title": (c.get("text") or "Viral moment")[:70].strip(),
+                    "hook": (c.get("text") or "").split(".")[0][:90],
+                    "start": c["start"],
+                    "end": c["end"],
+                    "score": c["score"],
+                    "hashtags": [],
+                }
+                for c in sorted(finder_cands, key=lambda x: -x["score"])[:n]
+            ]
+        else:
+            clips = _fallback_clips(segments, duration, n)
 
     # Never overlap: keep the higher-scored clip when two collide.
     clips.sort(key=lambda c: -c.get("score", 0))

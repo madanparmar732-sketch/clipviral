@@ -110,20 +110,41 @@ def transcribe_video(video_path: str, workdir: str) -> dict:
     logger.info("Transcribing %d audio chunk(s)...", len(chunks))
 
     client = make_ai_client()
+
+    # ---- transcribe ALL chunks in parallel (3 workers) — OpusClip-style concurrency ----
+    def _one_chunk(chunk_path: str) -> dict:
+        last_exc: Exception | None = None
+        for _try in range(2):
+            try:
+                with open(chunk_path, "rb") as audio_file:
+                    response = client.audio.transcriptions.create(
+                        model=whisper_model(),
+                        file=audio_file,
+                        response_format="verbose_json",
+                        timestamp_granularities=["word", "segment"],
+                    )
+                return _to_dict(response)
+            except Exception as exc:  # transient API hiccups shouldn't kill the job
+                last_exc = exc
+        raise last_exc  # type: ignore[misc]
+
+    results: list[dict] = [{}] * len(chunks)
+    if len(chunks) == 1:
+        results[0] = _one_chunk(chunks[0][1])
+    else:
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(max_workers=min(3, len(chunks))) as pool:
+            futures = {pool.submit(_one_chunk, cp): i for i, (_cs, cp) in enumerate(chunks)}
+            for fut, i in futures.items():
+                results[i] = fut.result()
+
     texts: list[str] = []
     segments: list[dict] = []
     words: list[dict] = []
     offset = 0.0
 
-    for chunk_start, chunk_path in chunks:
-        with open(chunk_path, "rb") as audio_file:
-            response = client.audio.transcriptions.create(
-                model=whisper_model(),
-                file=audio_file,
-                response_format="verbose_json",
-                timestamp_granularities=["word", "segment"],
-            )
-        data = _to_dict(response)
+    for (chunk_start, chunk_path), data in zip(chunks, results):
 
         texts.append(data.get("text", "") or "")
         for seg in data.get("segments") or []:
