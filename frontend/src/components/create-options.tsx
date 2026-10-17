@@ -207,7 +207,7 @@ export default function CreateOptions() {
           )}
 
           <Button size="sm" onClick={persist}>
-            {saved ? "✅ Saved — ab upload/link use karega" : "Save options"}
+            {saved ? "✅ Saved — next upload will use these" : "Save options"}
           </Button>
         </div>
       )}

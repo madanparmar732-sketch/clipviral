@@ -438,6 +438,18 @@ export default function StudioPage() {
             <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">Studio</span>
             <span className="ml-2 text-sm font-normal text-white/50">live captions • browser editing</span>
           </h1>
+          {typeof clip.score === "number" && clip.score > 0 && (
+            <div className="hidden items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 sm:flex" title="Virality Score — how likely this clip pops on Reels/Shorts/TikTok">
+              <span className="relative grid h-7 w-7 place-items-center">
+                <svg viewBox="0 0 28 28" className="absolute -rotate-90">
+                  <circle cx="14" cy="14" r="11" fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="3" />
+                  <circle cx="14" cy="14" r="11" fill="none" stroke="#34d399" strokeWidth="3" strokeLinecap="round" strokeDasharray={`${(Math.min(clip.score, 99) / 99) * 69.1} 69.1`} />
+                </svg>
+                <span className="text-[9px] font-black">{Math.min(clip.score, 99)}</span>
+              </span>
+              <span className="text-[11px] font-semibold text-emerald-300">VIRALITY</span>
+            </div>
+          )}
           <div className="ml-auto flex gap-2">
             <Button variant="outline" size="sm" onClick={serverRender}><Video className="h-4 w-4" /> ☁️ Server render (MP4)</Button>
             <Button size="sm" onClick={exportInBrowser} disabled={exporting}>

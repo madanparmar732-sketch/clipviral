@@ -118,6 +118,27 @@ export default function JobCard({ job, token, account }: { job: Job; token: stri
               <Loader2 className="h-4 w-4 animate-spin text-violet-400" />
               {stageLabel(job.stage)}
             </div>
+            <div className="flex items-center gap-1.5">
+              {(() => {
+                const p = job.progress ?? 0;
+                const steps = ["Upload", "Transcribe", "Find clips", "Render"];
+                const activeIdx = Math.min(3, Math.max(0, Math.floor((p / 100) * 4)));
+                return steps.map((s, i) => (
+                  <div key={s} className="flex-1">
+                    <div
+                      className={`h-1 rounded-full transition-colors duration-500 ${
+                        i < activeIdx ? "bg-gradient-to-r from-indigo-400 to-fuchsia-400"
+                        : i === activeIdx ? "bg-indigo-400/70 animate-pulse"
+                        : "bg-white/10"
+                      }`}
+                    />
+                    <p className={`mt-1.5 text-center text-[10px] ${i <= activeIdx ? "text-indigo-200" : "text-muted-foreground/50"}`}>
+                      {s}
+                    </p>
+                  </div>
+                ));
+              })()}
+            </div>
             <Progress value={job.progress ?? 0} />
             <p className="text-right text-xs text-muted-foreground">{job.progress ?? 0}%</p>
           </div>
@@ -204,7 +225,7 @@ export default function JobCard({ job, token, account }: { job: Job; token: stri
                   </Link>
                   <Link href={`/studio/${clip.id}`}>
                     <Button size="sm" variant="outline" className="w-full border-fuchsia-500/40">
-                      <Sparkles className="h-4 w-4" /> 🎨 Studio (live)
+                      <Sparkles className="h-4 w-4" /> Open Studio
                     </Button>
                   </Link>
                   <ClipActions clip={clip} token={token} />

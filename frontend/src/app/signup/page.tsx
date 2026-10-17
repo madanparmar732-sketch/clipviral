@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Clapperboard, Loader2 } from "lucide-react";
+import { Check, Clapperboard, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,15 +45,45 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="hero-glow flex min-h-screen items-center justify-center p-6">
-      <div className="glass w-full max-w-md rounded-2xl p-8">
-        <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-cyan-400">
-            <Clapperboard className="h-6 w-6 text-white" />
+    <main className="hero-glow grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
+      {/* brand panel */}
+      <div className="relative hidden flex-col justify-between overflow-hidden border-r border-white/[0.06] bg-white/[0.02] p-12 lg:flex">
+        <div className="dot-grid pointer-events-none absolute inset-0" />
+        <Link href="/" className="relative flex items-center gap-2.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 shadow-lg shadow-indigo-500/25">
+            <Clapperboard className="h-5 w-5 text-white" />
           </span>
-          <h1 className="text-2xl font-bold">Create your account</h1>
-          <p className="text-sm text-muted-foreground">
-            Free to start — long video in, viral clips out.
+          <span className="text-lg font-bold tracking-tight">
+            Clip<span className="gradient-text">Viral</span>
+          </span>
+        </Link>
+
+        <div className="relative">
+          <h2 className="max-w-md text-3xl font-extrabold leading-tight tracking-tight">
+            20 seconds to sign up. <span className="gradient-text">6 clips in 6 minutes.</span>
+          </h2>
+          <ul className="mt-6 space-y-2.5 text-sm text-muted-foreground">
+            {["Unlimited videos & clips — no credits", "Virality Score 0–99 on every clip", "Every caption style unlocked, free forever", "No card, no trial countdown"].map((t) => (
+              <li key={t} className="flex items-center gap-2.5">
+                <Check className="h-4 w-4 shrink-0 text-emerald-400" /> {t}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="relative text-xs text-muted-foreground/60">
+          © {new Date().getFullYear()} ClipViral — free AI clipping for every creator.
+        </p>
+      </div>
+
+      {/* form panel */}
+      <div className="flex items-center justify-center p-6">
+      <div className="glass w-full max-w-md rounded-3xl p-8 md:p-10">
+        <div className="mb-8 text-center lg:text-left">
+          <p className="eyebrow mb-2">Free forever plan</p>
+          <h1 className="text-3xl font-extrabold tracking-tight">Create your account</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Long video in, virality-scored clips out.
           </p>
         </div>
 
@@ -104,6 +134,7 @@ export default function SignupPage() {
             </Link>
           </p>
         </form>
+      </div>
       </div>
     </main>
   );

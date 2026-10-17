@@ -89,7 +89,7 @@ export default function SchedulerPage() {
         <div>
           <h1 className="text-2xl font-bold">📅 Scheduler & Collections</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Posts schedule karo, calendar export karo, clips ko folders me organise karo.
+            Schedule posts, export a calendar, and organize clips into collections.
           </p>
         </div>
         <Link href="/dashboard" className="text-sm text-violet-400 hover:underline">
@@ -146,7 +146,7 @@ export default function SchedulerPage() {
           </div>
           {collections.length === 0 && (
             <p className="rounded-xl border border-white/10 p-6 text-center text-sm text-muted-foreground">
-              Koi collection nahi. Upar naam likh ke banao — phir clip cards se clips add karo.
+              No collections yet — name one above to create it, then add clips from any clip card.
             </p>
           )}
           {collections.map((c) => (

@@ -111,7 +111,7 @@ export default function BrandKitPage() {
             <Label>Logo (PNG/JPG, chhota rakho)</Label>
             <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-white/20 px-4 py-2 text-sm hover:bg-white/5">
               <Upload className="h-4 w-4" />
-              {logoDataUrl ? "Logo selected ✅" : "Logo choose karo"}
+              {logoDataUrl ? "Logo selected ✅" : "Choose a logo"}
               <input type="file" accept="image/*" className="hidden" onChange={pickLogo} />
             </label>
           </div>

@@ -46,7 +46,7 @@ export default function ClipActions({ clip, token }: { clip: Clip; token: string
     setNote(null);
     try {
       const msg = await fn();
-      setNote(msg || "✅ Done — refresh karo");
+      setNote(msg || "✅ Done");
     } catch (e) {
       setNote(`⚠️ ${e instanceof Error ? e.message : "failed"}`);
     } finally {
@@ -65,7 +65,7 @@ export default function ClipActions({ clip, token }: { clip: Clip; token: string
     <div className="mt-2">
       <Button size="sm" variant="ghost" className="w-full justify-start gap-2 px-2" onClick={() => setOpen((v) => !v)}>
         <MoreHorizontal className="h-4 w-4" />
-        {open ? "Tools — band karo" : "More tools (free)"}
+        {open ? "Hide tools" : "More tools (free)"}
       </Button>
 
       {open && (
@@ -132,7 +132,7 @@ export default function ClipActions({ clip, token }: { clip: Clip; token: string
               onClick={() => run("social", async () => {
                 const r = await buildSocialPack(token, clip.id);
                 setPack(r.pack);
-                return "✍️ Social copy ready — neeche platform choose karo";
+                return "✍️ Social copy ready — pick a platform below";
               })}>
               {busy === "social" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
               {pack ? "Regenerate social copy" : "Generate social copy (YT/TikTok/IG/X…)"}

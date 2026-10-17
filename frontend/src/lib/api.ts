@@ -42,7 +42,7 @@ async function fetchWithRetry(url: string, init: RequestInit, tries = 2): Promis
       await new Promise((r) => setTimeout(r, 1200));
     }
   }
-  throw new Error("Network problem — internet check karke dobara try karo (server 1 min me jag jayega).");
+  throw new Error("Network hiccup — the server may be waking up. Retrying usually fixes it in a few seconds.");
 }
 
 function authHeaders(token: string): HeadersInit {

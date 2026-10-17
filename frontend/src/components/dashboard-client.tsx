@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Inbox, RefreshCw } from "lucide-react";
+import { Inbox, RefreshCw, Sparkles } from "lucide-react";
 
 import JobCard from "@/components/job-card";
 import LinkImport from "@/components/link-import";
@@ -78,16 +78,78 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
     };
   }, [jobs, token, refresh]);
 
+  const allClips = jobs.flatMap((j) => j.clips ?? []);
+  const scores = allClips.map((c) => c.score).filter((s): s is number => typeof s === "number" && s > 0);
+  const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+  const best = scores.length ? Math.max(...scores) : null;
+  const activeJobs = jobs.filter((j) => j.status === "queued" || j.status === "processing").length;
+  const totalSourceSecs = jobs.reduce((a, j) => a + (j.duration_seconds ?? 0), 0);
+
   return (
     <div className="space-y-8">
-      <section className="rounded-2xl border border-white/10 bg-white/5 p-6 md:p-8">
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold">Upload a new video</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Welcome back{userEmail ? `, ${userEmail}` : ""}. Drop a long video or paste a link
-            (YouTube, Facebook, X, Instagram) — the AI cuts it into viral 9:16 clips with animated
-            captions.
+      {/* -------- header -------- */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="eyebrow mb-2">Workspace</p>
+          <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
+            {activeJobs > 0 ? (
+              <>AI is cutting <span className="gradient-text">{activeJobs} video{activeJobs > 1 ? "s" : ""}</span>…</>
+            ) : (
+              <>Your <span className="gradient-text">clip studio</span></>
+            )}
+          </h1>
+          <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
+            {userEmail ? `Signed in as ${userEmail} · ` : ""}
+            Drop a long video or paste a link — the AI returns virality-scored 9:16 clips with animated captions.
           </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <Link href="/scheduler" className="glass card-lift rounded-full px-3.5 py-1.5 font-medium text-white/80 hover:text-white">
+            📅 Scheduler & Collections
+          </Link>
+          <Link href="/settings/brand" className="glass card-lift rounded-full px-3.5 py-1.5 font-medium text-white/80 hover:text-white">
+            🎨 Brand kit
+          </Link>
+          {health && (
+            <span
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 font-medium ${
+                health.ok ? "bg-emerald-500/10 text-emerald-300/90" : "bg-red-500/10 text-red-300"
+              }`}
+              title={Object.entries(health.checks).map(([k, v]) => `${k}: ${v}`).join("\n")}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${health.ok ? "bg-emerald-400 animate-pulse" : "bg-red-400"}`} />
+              {health.ok ? "All systems OK" : "Degraded — auto-fixing"}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* -------- stats -------- */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {[
+          ["Videos processed", String(jobs.length), totalSourceSecs > 0 ? `${Math.round(totalSourceSecs / 60)} min of footage` : "your uploads"],
+          ["Clips created", String(allClips.length), "ready to download"],
+          ["Avg virality", avgScore !== null ? String(avgScore) : "—", best !== null ? `best ${best}/99` : "scores land here"],
+          ["Plan", account?.plan === "pro" ? "PRO ⚡" : "FREE", account?.plan === "pro" ? "no ads · no watermark · fast lane" : "every feature unlocked"],
+        ].map(([label, value, sub]) => (
+          <div key={label} className="glass rounded-2xl px-5 py-4">
+            <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/70">{label}</p>
+            <p className="mt-1 text-2xl font-black tabular-nums">{value}</p>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">{sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* -------- create -------- */}
+      <section className="glass rounded-3xl p-6 md:p-8">
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold">Make a new batch</h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">Upload a file or import from any platform.</p>
+          </div>
+          <span className="hidden items-center gap-1.5 rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-200 sm:flex">
+            <Sparkles className="h-3.5 w-3.5" /> No credits · unlimited
+          </span>
         </div>
         <CreateOptions />
         <UploadDropzone compact />
@@ -98,37 +160,14 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
           <div className="h-px flex-1 bg-white/10" />
         </div>
         <LinkImport />
-        <div className="mt-3 flex flex-wrap gap-2 text-xs">
-          <Link href="/scheduler" className="rounded-full border border-white/10 px-3 py-1.5 hover:bg-white/5">
-            📅 Scheduler & Collections
-          </Link>
-          <Link href="/settings/brand" className="rounded-full border border-white/10 px-3 py-1.5 hover:bg-white/5">
-            🎨 Brand kit
-          </Link>
-        </div>
       </section>
 
+      {/* -------- jobs -------- */}
       <section>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Your clips</h2>
-          {account && (
-            <span className={"rounded-full px-3 py-1 text-xs font-semibold " + (account.plan === "pro" ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/15 text-amber-300")}>
-              {account.plan === "pro" ? "⭐ PRO" : `FREE — ${account.videos_used_this_month}/${account.videos_limit ?? "∞"} videos`}
-            </span>
-          )}
-          {health && (
-            <span
-              className={
-                "rounded-full px-3 py-1 text-xs font-semibold " +
-                (health.ok ? "bg-emerald-500/20 text-emerald-300" : "bg-red-500/20 text-red-300")
-              }
-              title={Object.entries(health.checks).map(([k, v]) => `${k}: ${v}`).join("\n")}
-            >
-              {health.ok ? "🟢 All systems OK" : `🔴 ${Object.entries(health.checks).filter(([, v]) => String(v).startsWith("FAIL")).map(([k]) => k).join(", ")}`}
-            </span>
-          )}
+          <h2 className="text-lg font-bold">Your clips {jobs.length > 0 && <span className="ml-1 text-sm font-normal text-muted-foreground">({jobs.length})</span>}</h2>
           <Button variant="outline" size="sm" onClick={() => refresh()} disabled={loading}>
-            <RefreshCw className="h-4 w-4" /> Refresh
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
           </Button>
         </div>
 
@@ -143,10 +182,14 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
             <RefreshCw className="mr-2 h-5 w-5 animate-spin" /> Loading your jobs…
           </div>
         ) : jobs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-white/15 py-16 text-center">
-            <Inbox className="h-10 w-10 text-muted-foreground" />
-            <p className="text-muted-foreground">
-              No videos yet. Upload your first one above — the magic takes a few minutes.
+          <div className="dot-grid flex flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-white/15 px-6 py-20 text-center">
+            <div className="mb-1 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/25 to-violet-500/15 ring-1 ring-inset ring-indigo-400/25">
+              <Inbox className="h-7 w-7 text-indigo-300" />
+            </div>
+            <p className="font-semibold">Nothing here yet — and that's the fun part</p>
+            <p className="max-w-md text-sm text-muted-foreground">
+              Paste a link or drop a video above. A 1-hour podcast usually comes back as 6–12 scored
+              clips; you can close this tab, they'll be waiting here.
             </p>
           </div>
         ) : (
