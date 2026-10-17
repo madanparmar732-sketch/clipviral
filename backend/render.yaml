@@ -24,3 +24,7 @@ services:
         sync: false
       - key: RECAP_ENABLED
         value: "false"
+      # Set to "1" in the Render dashboard ONLY after the phone worker
+      # is confirmed online — then Render becomes API-only and the phone renders.
+      - key: CLIPVIRAL_PHONE_WORKER
+        value: "0"
