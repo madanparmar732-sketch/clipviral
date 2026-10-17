@@ -265,8 +265,17 @@ def _thumb_job(clip: dict, prompt: str, user_id: str) -> None:
         sp = clip.get("storage_path") or ""
         local = os.path.join(workdir, "clip.mp4")
         os.makedirs(workdir, exist_ok=True)
+        data = None
+        for attempt in range(2):  # storage can hiccup mid-deploy; one silent retry
+            try:
+                data = bucket.download(sp)
+                break
+            except Exception:
+                if attempt:
+                    raise
+                import time as _t; _t.sleep(2.0)
         with open(local, "wb") as fh:
-            fh.write(bucket.download(sp))
+            fh.write(data)
         title = prompt.strip() or (clip.get("title") or "Viral moment")
         paths = parity.make_thumbnail_candidates(local, title, workdir)
         urls = []

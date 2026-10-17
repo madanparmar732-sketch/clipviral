@@ -401,10 +401,12 @@ def make_thumbnail_candidates(clip_video_local: str, title: str, out_dir: str,
     paths = []
     for i, at in enumerate(whens):
         out = os.path.join(out_dir, f"thumb_{i + 1}.jpg")
+        # ':' inside the ass path must be escaped or libass parses it as a filter arg
+        ass_arg = os.path.abspath(ass_path).replace(":", "\\:")
         _run([
             "ffmpeg", "-y", "-threads", "1", "-ss", f"{at:.2f}", "-i", clip_video_local,
             "-frames:v", "1",
-            "-vf", f"scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,ass='{os.path.abspath(ass_path)}'",
+            "-vf", f"scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,ass='{ass_arg}'",
             "-q:v", "4", out,
         ], timeout=120)
         paths.append(out)
