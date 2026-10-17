@@ -58,6 +58,7 @@ def _load_secrets() -> bool:
         log.error("missing secret: %s (add it in Colab's Secrets panel)", k)
     if not missing:
         os.makedirs(os.environ.get("MEDIA_DIR", "./media"), exist_ok=True)
+        os.environ.setdefault("MEDIA_DIR", "./media")
     return not missing
 
 
