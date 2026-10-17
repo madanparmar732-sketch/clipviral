@@ -13,6 +13,45 @@ import subprocess
 logger = logging.getLogger(__name__)
 
 
+# ==================== GPU RENDER FARM SUPPORT ====================
+# When the job is executed by a GPU worker (Colab/Kaggle notebook running
+# workers/gpu_daemon.py, which sets CLIPVIRAL_GPU=1 after proving the box can
+# really encode), we switch to NVIDIA's hardware encoder and unlock CPU
+# threads. On the tiny Render box the old slow-path stays untouched.
+
+def _gpu_encode_ready() -> bool:
+    if os.environ.get("CLIPVIRAL_GPU", "") != "1":
+        return False
+    if "_ok" in globals().get("_GPU_ENC_CACHE", {}):
+        return globals()["_GPU_ENC_CACHE"]["_ok"]
+    ok = False
+    try:
+        probe = subprocess.run(["ffmpeg", "-hide_banner", "-encoders"],
+                               capture_output=True, text=True, timeout=30)
+        if "h264_nvenc" in (probe.stdout or ""):
+            # real encode of 5 black frames — proves the NVENC driver libs exist
+            test = subprocess.run(
+                ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                 "-f", "lavfi", "-i", "color=black:s=256x256:d=0.2",
+                 "-c:v", "h264_nvenc", "-f", "null", "-"],
+                capture_output=True, text=True, timeout=60)
+            ok = test.returncode == 0
+    except Exception:
+        ok = False
+    globals()["_GPU_ENC_CACHE"] = {"_ok": ok}
+    logger.info("GPU encode available: %s", ok)
+    return ok
+
+
+def encode_args() -> list[str]:
+    """Encoder flags for every clip render. libx264/ultrafast/1-thread on the
+    free Render CPU; NVENC + all cores on a GPU worker."""
+    if _gpu_encode_ready():
+        return ["-c:v", "h264_nvenc", "-preset", "p1", "-tune", "ll",
+                "-rc", "vbr", "-cq", "26", "-b:v", "0"]
+    return ["-threads", "1", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23"]
+
+
 def _run(command: list[str]) -> subprocess.CompletedProcess:
     logger.info("Running: %s", " ".join(command))
     result = subprocess.run(command, capture_output=True, text=True, timeout=900)
@@ -190,8 +229,7 @@ def render_clip(source_path: str, start: float, end: float, ass_path: str, out_p
         # -threads 1  -> one encode thread (two fight over half a CPU!)
         # no loudnorm -> we skip the expensive audio normalization pass
         # ultrafast   -> fastest x264 preset (captions are burned by the ass filter)
-        "-threads", "1",
-        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+        *encode_args(),
         "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
         "-movflags", "+faststart",
     ]
@@ -380,8 +418,7 @@ def cut_and_concat(source_path: str, segments: list[tuple[float, float]], out_pa
         "-i", source_path,
         "-filter_complex", fc,
         "-map", vout, "-map", "[ac]",
-        "-threads", "1",
-        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+        *encode_args(),
         "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
         "-movflags", "+faststart",
     ]
