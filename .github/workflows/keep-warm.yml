@@ -1,0 +1,22 @@
+name: Keep Render awake
+# Render free instances sleep after ~15 min without HTTP traffic and the
+# sleep KILLS background video renders mid-job. This workflow pokes the
+# health endpoint every 5 minutes, forever, from GitHub's own clocks.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    name: ping /api/health
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: curl
+        run: |
+          for i in 1 2; do
+            curl -sS --retry 2 --retry-all-errors -m 75 -o /dev/null \
+              -w "attempt $i: %{http_code} in %{time_total}s\n" \
+              https://clipviral-r5m1.onrender.com/api/health || true
+          done
