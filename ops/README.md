@@ -1,0 +1,1 @@
+# ops/keep-warm.yml.github-action — GitHub Actions cron to ping Render every 5 min.\n# The PAT can't push files under .github/workflows (no workflow scope).\n# To enable: copy ops/keep-warm.yml.github-action to .github/workflows/keep-warm.yml in the repo (GitHub → Add file), or give the token the workflow scope.
