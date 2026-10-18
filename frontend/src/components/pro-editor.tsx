@@ -21,7 +21,7 @@ export default function ProEditor({
   account: Account | null;
 }) {
   const [open, setOpen] = useState(false);
-  const [style, setStyle] = useState(account?.caption_style ?? "beast");
+  const [style, setStyle] = useState(account?.caption_style ?? "karaoke");
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(Math.round(clip.end_seconds ?? 30));
   const [sfx, setSfx] = useState(account?.sfx ?? false);
@@ -32,8 +32,8 @@ export default function ProEditor({
   const [error, setError] = useState<string | null>(null);
 
   const isPro = account?.plan === "pro";
-  const allStyles = account?.all_styles ?? ["beast", "minimal", "bold_box"];
-  const freeStyles = new Set(account?.free_styles ?? ["beast", "minimal", "bold_box"]);
+  const allStyles = account?.all_styles ?? ["karaoke", "clean", "yellow_pop"];
+  const freeStyles = new Set(account?.free_styles ?? ["karaoke", "clean", "yellow_pop"]);
 
   async function apply() {
     setBusy(true);

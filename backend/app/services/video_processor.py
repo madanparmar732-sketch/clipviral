@@ -260,8 +260,8 @@ def render_clip(source_path: str, start: float, end: float, ass_path: str, out_p
         f"crop={crop_w}:{crop_h}:{x}:{y},"
         f"scale=720:1280:flags=bilinear,"
         f"setsar=1,"
-        f"ass='{os.path.abspath(ass_path)}',"
-        f"format=yuv420p"
+        + (f"ass='{os.path.abspath(ass_path)}'," if os.path.getsize(ass_path) else "")
+        + f"format=yuv420p"
     )
 
     duration = max(0.5, end - start)
@@ -452,7 +452,7 @@ def cut_and_concat(source_path: str, segments: list[tuple[float, float]], out_pa
     if post_vf:
         fc += f";[vc]{post_vf}[vz]"
         vsrc = "[vz]"
-    if ass_path:
+    if ass_path and os.path.getsize(ass_path) > 0:
         ass_abs = os.path.abspath(ass_path).replace("\\", "/")
         fc += f";{vsrc}ass='{ass_abs}',format=yuv420p[vo]"
     else:

@@ -202,6 +202,7 @@ export type Account = {
   dub: string;
   free_styles: string[];
   all_styles: string[];
+  style_names?: Record<string, string>;
 };
 
 export async function renderClipNow(token: string, clipId: string): Promise<void> {
@@ -210,6 +211,15 @@ export async function renderClipNow(token: string, clipId: string): Promise<void
     headers: authHeaders(token),
   });
   if (!res.ok && res.status !== 409) throw new Error(`Could not queue render (HTTP ${res.status})`);
+}
+
+export async function recaptionClip(token: string, clipId: string, style: string): Promise<void> {
+  const res = await fetchWithRetry(`${API_URL}/api/clips/${clipId}/recaption`, {
+    method: "POST",
+    headers: { ...authHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ style }),
+  });
+  if (!res.ok) throw new Error(`Could not re-render (HTTP ${res.status})`);
 }
 
 export async function getAccount(token: string): Promise<Account> {

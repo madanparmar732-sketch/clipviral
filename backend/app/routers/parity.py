@@ -399,7 +399,7 @@ def _translate_job(clip: dict, lang: str, burn: bool, user_id: str) -> None:
             if not kept:
                 kept = [[0.0, float(wmeta.get("clip_duration") or 10.0)]]
             kept_len = sum(b - a for a, b in kept)
-            style = str(wmeta.get("style") or "beast")
+            style = str(wmeta.get("style") or "karaoke")
             ass_path = os.path.join(workdir, f"{lang}.ass")
             captions.build_ass_captions(translated, 0.0, max(1.0, kept_len), ass_path, style=style, watermark=True)
             chain = video_processor.clip_video_chain(src, 0.0, kept_len, reframe="face", enhance=False, watermark=True)
@@ -538,7 +538,7 @@ class BrandKitIn(BaseModel):
     id: str | None = None
     name: str = "My brand"
     logo_data_url: str = ""   # small data:image/...;base64,... pasted from the browser
-    caption_style: str = "beast"
+    caption_style: str = "karaoke"
     accent: str = "#7C3AED"
 
 

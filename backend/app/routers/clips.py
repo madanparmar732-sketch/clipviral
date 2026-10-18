@@ -1,7 +1,8 @@
 """Download links for finished clips."""
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from app.auth import get_current_user
@@ -202,6 +203,34 @@ def update_clip_meta(clip_id: str, payload: ClipMeta, user=Depends(get_current_u
         fields["hashtags"] = [str(t)[:30] for t in fields["hashtags"]][:5]
     get_admin().table("clips").update(fields).eq("id", clip_id).eq("user_id", user.id).execute()
     return {"ok": True}
+
+
+class RecaptionIn(BaseModel):
+    style: str = "none"   # "none" strips captions entirely
+
+
+@router.post("/api/clips/{clip_id}/recaption")
+def recaption(clip_id: str, body: RecaptionIn, background_tasks: BackgroundTasks,
+              user=Depends(get_current_user)):
+    """Re-render this clip with a different caption style — or no captions."""
+    from app.services.captions import STYLE_PRESETS
+
+    if body.style not in STYLE_PRESETS:
+        raise HTTPException(status_code=400, detail=f"Unknown style '{body.style}'.")
+    rows = (
+        get_admin().table("clips").select("id, user_id")
+        .eq("id", clip_id).limit(1).execute().data or []
+    )
+    if not rows or rows[0].get("user_id") != user.id:
+        raise HTTPException(status_code=404, detail="Clip not found.")
+    background_tasks.add_task(_run_recaption, clip_id, body.style)
+    return {"ok": True, "message": "Re-rendering with new captions — refresh in ~2 minutes."}
+
+
+def _run_recaption(clip_id: str, style: str) -> None:
+    from app.workers.pipeline import recaption_clip
+
+    recaption_clip(clip_id, style)
 
 
 @router.post("/api/clips/{clip_id}/render-now")

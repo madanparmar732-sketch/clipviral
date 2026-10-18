@@ -327,7 +327,7 @@ def deep_canary() -> dict:
             timeout=120,
         )
         words = [{"start": 0.5, "end": 1.0, "word": "system"}, {"start": 1.2, "end": 1.7, "word": "check"}]
-        build_ass_captions(words, 0.0, 4.0, ass, style="beast", watermark=False)
+        build_ass_captions(words, 0.0, 4.0, ass, style="karaoke", watermark=False)
         chain = video_processor.clip_video_chain(src, 0, 4, aspect="9:16")
         video_processor.cut_and_concat(src, [(0, 4)], out, video_chain=chain, ass_path=ass)
         info = video_processor.probe_video(out)

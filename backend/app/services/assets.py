@@ -180,7 +180,7 @@ def _render_asset(asset: dict) -> None:
 
         ass_path = os.path.join(workdir, f"clip_{idx}.ass")
         captions.build_ass_captions(words, 0.0, max(1.0, total), ass_path,
-                                    style=str(payload.get("style") or "beast"),
+                                    style=str(payload.get("style") or "karaoke"),
                                     watermark=bool(payload.get("watermark")))
         chain = video_processor.clip_video_chain(
             source, float(payload["start"]), float(payload["end"]),

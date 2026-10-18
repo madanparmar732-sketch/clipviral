@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Loader2, Scissors, Wand2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { proEditClip, type Account, type Clip } from "@/lib/api";
+import { proEditClip, recaptionClip, type Account, type Clip } from "@/lib/api";
 
 type Word = { start: number; end: number; word: string };
 
@@ -29,7 +29,7 @@ export default function ClipEditor({
   const [words, setWords] = useState<Word[] | null>(null);
   const [duration, setDuration] = useState<number>(clip.end_seconds ?? 30);
   const [removed, setRemoved] = useState<Set<number>>(new Set());
-  const [style, setStyle] = useState(account?.caption_style ?? "beast");
+  const [style, setStyle] = useState(account?.caption_style ?? "karaoke");
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState<number>(clip.end_seconds ?? 30);
   const [sfx, setSfx] = useState(account?.sfx ?? false);
@@ -39,7 +39,7 @@ export default function ClipEditor({
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const allStyles = account?.all_styles ?? ["beast", "minimal", "bold_box"];
+  const allStyles = account?.all_styles ?? ["karaoke", "clean", "yellow_pop"];
 
   async function toggleOpen() {
     if (!open && words === null) {
@@ -151,7 +151,7 @@ export default function ClipEditor({
 
           {/* CAPTION STYLES */}
           <div>
-            <p className="mb-1.5 text-xs font-semibold text-muted-foreground">🎨 Caption style (20):</p>
+            <p className="mb-1.5 text-xs font-semibold text-muted-foreground">🎨 Caption style (20 CapCut templates):</p>
             <div className="grid grid-cols-4 gap-1.5">
               {allStyles.map((s) => (
                 <button
@@ -163,9 +163,40 @@ export default function ClipEditor({
                     (style === s ? "bg-neutral-800 text-white" : "bg-black/[0.05] hover:bg-black/[0.09]")
                   }
                 >
-                  {s.replace("_", " ")}
+                  {(account?.style_names?.[s] ?? s.replace("_", " "))}
                 </button>
               ))}
+            </div>
+            <div className="mt-1.5 flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => setStyle("none")}
+                className={
+                  "flex-1 rounded px-1.5 py-1 text-[10px] font-semibold transition-colors " +
+                  (style === "none" ? "bg-red-600 text-white" : "bg-black/[0.05] text-red-600 hover:bg-black/[0.09]")
+                }
+              >
+                🚫 No captions
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  setError(null);
+                  try {
+                    await recaptionClip(token, clip.id, style);
+                    setMsg("Re-rendering with the new caption style — refresh in ~2 minutes.");
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : "Re-render failed.");
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                className="flex-1 rounded bg-neutral-800 px-1.5 py-1 text-[10px] font-semibold text-white hover:bg-neutral-700 disabled:opacity-50"
+              >
+                ✨ Apply to this clip
+              </button>
             </div>
           </div>
 

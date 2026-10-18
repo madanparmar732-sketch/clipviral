@@ -202,10 +202,79 @@ def _recover_stuck() -> None:
         _unmark_inflight(job_id)
 
 
+def recaption_clip(clip_id: str, style: str) -> bool:
+    """Re-render one stored clip with a NEW caption style (or style='none'
+    to strip captions entirely). Keeps the same storage path, so dashboards,
+    share links and downloads all update in place."""
+    admin = get_admin()
+    try:
+        clip = (admin.table("clips").select("*").eq("id", clip_id).limit(1).execute().data or [None])[0]
+        if not clip or not clip.get("job_id"):
+            return False
+        job_id = clip["job_id"]
+        job = (admin.table("jobs").select("user_id").eq("id", job_id).limit(1).execute().data or [{}])[0]
+        user_id = job.get("user_id")
+        prefs = _user_prefs(user_id) if user_id else {}
+        is_pro = bool(prefs.get("is_pro"))
+        workdir = os.path.join(settings.media_dir, job_id, "recaption")
+        os.makedirs(workdir, exist_ok=True)
+        source = os.path.join(workdir, "source.mp4")
+        if not os.path.exists(source):
+            if not storage.download_file_from_storage(f"{job_id}/source.mp4", source):
+                logger.warning("recaption %s: source not in storage", clip_id[:8])
+                return False
+        words_raw: dict = {}
+        wp = os.path.join(workdir, "words.json")
+        if storage.download_file_from_storage(clip.get("storage_path", "").replace(".mp4", ".words.json"), wp):
+            try:
+                with open(wp, encoding="utf-8") as fh:
+                    words_raw = json.load(fh) or {}
+            except Exception:
+                words_raw = {}
+        kept = [tuple(sx) for sx in words_raw.get("kept_segments") or []]
+        words = words_raw.get("words") or []
+        dur = float(words_raw.get("clip_duration") or 1.0)
+        if not kept:
+            kept = [(0.0, max(0.5, dur))]
+        remapped = captions.remap_words(words, [(float(a), float(b)) for a, b in kept])
+        ass_path = os.path.join(workdir, "recap.ass")
+        captions.build_ass_captions(remapped, 0.0, max(1.0, dur), ass_path,
+                                    style=style, watermark=not is_pro)
+        out_path = os.path.join(workdir, "recap.mp4")
+        video_processor.cut_and_concat(source, kept, out_path, video_chain="",
+                                       ass_path=ass_path, total_seconds=dur)
+        thumb_path = os.path.join(workdir, "recap.jpg")
+        thumb_url = ""
+        try:
+            video_processor.make_thumbnail(out_path, thumb_path)
+            thumb_url = storage.upload_file_to_storage(thumb_path, clip["storage_path"].replace(".mp4", ".jpg"))
+        except Exception:
+            logger.exception("recaption thumbnail failed (non-fatal)")
+        video_url = storage.upload_file_to_storage(out_path, clip["storage_path"])
+        fields = {"video_url": video_url, "storage_path": clip["storage_path"]}
+        if thumb_url:
+            fields["thumbnail_url"] = thumb_url
+        admin.table("clips").update(fields).eq("id", clip_id).execute()
+        logger.info("recaption %s done (style=%s)", clip_id[:8], style)
+        return True
+    except Exception as exc:
+        logger.exception("recaption failed for %s", clip_id[:8])
+        try:
+            admin.table("clips").update({"error": f"Recaption failed: {str(exc)[:160]}"}).eq("id", clip_id).execute()
+        except Exception:
+            pass
+        return False
+    finally:
+        try:
+            shutil.rmtree(workdir, ignore_errors=True)
+        except Exception:
+            pass
+
+
 def _user_prefs(user_id: str) -> dict:
     from app.services.captions import FREE_STYLES
 
-    prefs = {"is_pro": False, "caption_style": "beast", "sfx": False, "enhance": False, "reframe": "face"}
+    prefs = {"is_pro": False, "caption_style": "karaoke", "sfx": False, "enhance": False, "reframe": "face"}
     try:
         _auth = get_admin().auth
         res = getattr(_auth, "admin", _auth).get_user_by_id(user_id)
@@ -215,7 +284,7 @@ def _user_prefs(user_id: str) -> dict:
             if key in meta:
                 prefs[key] = meta[key]
         if prefs["caption_style"] not in FREE_STYLES:
-            prefs["caption_style"] = "beast"  # unknown style -> safe default (all styles are free)
+            prefs["caption_style"] = "karaoke"  # unknown style -> safe default (all styles are free)
     except Exception:
         logger.exception("Could not read user prefs (using free defaults)")
     return prefs
@@ -306,12 +375,12 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
         job_res = admin.table("jobs").select("*").eq("id", job_id).limit(1).execute()
         job_rows = job_res.data or []
         user_id = job_rows[0].get("user_id") if job_rows else None
-        prefs = _user_prefs(user_id) if user_id else {"is_pro": False, "caption_style": "beast", "sfx": False, "enhance": False, "reframe": "face"}
+        prefs = _user_prefs(user_id) if user_id else {"is_pro": False, "caption_style": "karaoke", "sfx": False, "enhance": False, "reframe": "face"}
         # ---- OpusClip-parity create options (genre/keywords/aspect/brand/...) ----
         from app.services import parity as _parity
 
         opts = _parity.load_job_prefs(job_id)
-        cap_style = str(opts.get("caption_style") or prefs.get("caption_style") or "beast")
+        cap_style = str(opts.get("caption_style") or prefs.get("caption_style") or "karaoke")
         brand_logo_local = ""
         if opts.get("brand_kit_id") and user_id:
             for kit in _parity.list_brand_kits(user_id):
@@ -477,6 +546,8 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
             captions.build_ass_captions(remapped, 0.0, max(1.0, kept_len), ass_path,
                                         style=cap_style,
                                         watermark=not is_pro)
+            if captions.captions_are_none(cap_style):
+                open(ass_path, "w").close()  # empty .ass -> nothing burned in
 
             chain = video_processor.clip_video_chain(
                 source_path, clip["start"], clip["end"],
@@ -519,7 +590,7 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
                             "source_start": clip["start"],
                             "source_end": clip["end"],
                             "kept_segments": [[round(a, 3), round(b, 3)] for a, b in kept_segments],
-                            "style": str(prefs.get("caption_style") or "beast"),
+                            "style": str(prefs.get("caption_style") or "karaoke"),
                             "words": [
                                 {"start": round(w["start"], 3), "end": round(w["end"], 3), "word": w.get("word", "")}
                                 for w in remapped

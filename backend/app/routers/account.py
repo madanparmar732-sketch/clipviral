@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from app.auth import get_current_user
 from app.config import settings
-from app.services.captions import FREE_STYLES, STYLE_PRESETS
+from app.services.captions import DEFAULT_STYLE, FREE_STYLES, STYLE_NAMES, STYLE_PRESETS
 from app.supabase_client import get_admin
 
 router = APIRouter()
@@ -25,7 +25,7 @@ def read_prefs(user) -> dict:
     meta = getattr(user, "user_metadata", None) or {}
     return {
         "is_pro": bool(meta.get("is_pro", False)),
-        "caption_style": str(meta.get("caption_style") or "beast"),
+        "caption_style": str(meta.get("caption_style") or DEFAULT_STYLE),
         "sfx": bool(meta.get("sfx", False)),
         "enhance": bool(meta.get("enhance", False)),
         "reframe": str(meta.get("reframe") or "face"),
@@ -61,7 +61,8 @@ def get_account(user=Depends(get_current_user)):
         "reframe": prefs["reframe"],
         "dub": prefs["dub"],
         "free_styles": list(STYLE_PRESETS.keys()),
-        "all_styles": list(STYLE_PRESETS.keys()),
+        "all_styles": [k for k in STYLE_PRESETS if not STYLE_PRESETS[k].get("skip")],
+        "style_names": STYLE_NAMES,
     }
 
 
@@ -80,7 +81,7 @@ def save_prefs(payload: PrefsRequest, user=Depends(get_current_user)):
     is_pro = current["is_pro"]
 
     if payload.caption_style is not None:
-        meta["caption_style"] = payload.caption_style if payload.caption_style in STYLE_PRESETS else "beast"
+        meta["caption_style"] = payload.caption_style if payload.caption_style in STYLE_PRESETS else DEFAULT_STYLE
     if payload.sfx is not None:
         meta["sfx"] = payload.sfx
     if payload.enhance is not None:

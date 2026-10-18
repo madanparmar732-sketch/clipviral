@@ -226,9 +226,9 @@ def pro_edit_clip_job(clip_id: str, opts: dict) -> None:
         if not mapped:
             raise RuntimeError("Nothing left after cutting.")
 
-        style = str(opts.get("style") or wmeta.get("style") or "beast")
+        style = str(opts.get("style") or wmeta.get("style") or "karaoke")
         if style not in FREE_STYLES and not is_pro:
-            style = "beast"
+            style = "karaoke"
 
         ass_path = os.path.join(workdir, "edit.ass")
         build_ass_captions(

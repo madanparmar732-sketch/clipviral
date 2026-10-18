@@ -26,7 +26,7 @@ def _clean_for_drawtext(text: str) -> str:
     )
 
 
-def script_to_video(script_or_topic: str, workdir: str, style_hint: str = "beast") -> dict:
+def script_to_video(script_or_topic: str, workdir: str, style_hint: str = "karaoke") -> dict:
     """Returns {"path": out.mp4, "title": ..., "duration": ...}."""
     os.makedirs(workdir, exist_ok=True)
     client = make_ai_client()

@@ -157,7 +157,7 @@ async def upload_from_link(
 
 class ScriptRequest(BaseModel):
     script: str
-    style: str = "beast"
+    style: str = "karaoke"
 
 
 @router.post("/api/videos/from-script")
