@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 # The free machine is tiny (half a CPU!). Jobs run ONE AT A TIME through a
 # priority queue — Pro jobs (priority 1) jump ahead of free jobs (priority 5).
+import gc
 import queue as _queue
 
 _TASKS: "_queue.PriorityQueue" = _queue.PriorityQueue()
@@ -86,6 +87,9 @@ def _queue_worker_once() -> None:
         except _queue.Empty:
             recover_stuck_safe()  # periodic sweep — nothing is ever stuck forever
             continue
+        while not _mem_ok():  # RAM is scary-high: let gc/finish catch up first
+            logger.warning("memory guard: RSS %.0f MB — holding next job", _rss_mb())
+            time.sleep(10)
         threading.Thread(target=_run_guarded, args=(job_id, source_path), daemon=True).start()
 
 
@@ -347,6 +351,22 @@ def _cdn_fallback(url: str, workdir: str) -> dict | None:
         return None
 
 
+def _rss_mb() -> float:
+    """Our own RAM use in MB (from /proc — no psutil needed)."""
+    try:
+        with open("/proc/self/status") as fh:
+            for line in fh:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) / 1024.0
+    except Exception:
+        pass
+    return 0.0
+
+
+def _mem_ok() -> bool:
+    return _rss_mb() < float(getattr(settings, "max_rss_mb", 430))
+
+
 def _run_guarded(job_id: str, source_path: str) -> None:
     if _render_skips(job_id):
         logger.info("Job %s leased to the phone worker - render side skipping.", job_id)
@@ -371,6 +391,13 @@ def _run_guarded(job_id: str, source_path: str) -> None:
     finally:
         stop.set()
         _unmark_inflight(job_id)
+        gc.collect()
+        try:
+            import ctypes
+            ctypes.CDLL("libc.so.6").malloc_trim(0)   # hand RAM back to the OS
+        except Exception:
+            pass
+        logger.info("job %s done - RSS now %.0f MB", job_id[:8], _rss_mb())
 
 
 def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:

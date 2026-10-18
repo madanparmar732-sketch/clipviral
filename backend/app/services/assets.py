@@ -253,6 +253,10 @@ def night_loop() -> None:
             if time.time() - last_reset > 1800:
                 _reset_stale()
                 last_reset = time.time()
+            from app.workers.pipeline import _INFLIGHT, _INFLIGHT_LOCK
+            if _INFLIGHT_LOCK and len(_INFLIGHT) > 0:
+                time.sleep(45)  # a heavy job is running — don't stack memory
+                continue
             work = _claim(window=in_night_window())
             if work:
                 _render_asset(work)

@@ -295,9 +295,14 @@ def api_health():
         doctor._report(checks, fixes)
     except Exception:
         pass
+    try:
+        from app.workers.pipeline import _rss_mb
+        checks["ram_mb"] = round(_rss_mb())
+    except Exception:
+        pass
     return {
         "ok": not bad,
-        "build": "2026-10-17.1",  # bump on every deploy so we can see which code is live
+        "build": "2026-10-18.1",  # bump on every deploy so we can see which code is live
         "checks": checks,
         "fixed_now": fixes,
         "time": doctor._now_iso(),

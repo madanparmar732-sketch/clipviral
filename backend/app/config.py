@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     # When 1: this box SKIPS job execution — a Termux phone worker owns
     # jobs instead (app/services/lease.py). Render dashboard env var CLIPVIRAL_PHONE_WORKER=1.
     phone_worker: bool = False
+    max_rss_mb: int = 430  # stop dispatching new jobs above this (512MB box)
 
     # ---- NIGHT BATCH / LAZY RENDERING (the "100 videos on a tiny CPU" trick) ----
     # Analysis + clip CARDS land instantly; the heavy encoder for the clips the

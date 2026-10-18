@@ -7,4 +7,8 @@ set -e
 node /opt/bgutil/server/build/main.js >/tmp/bgutil.log 2>&1 &
 sleep 1
 
-exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-10000}"
+# Python frees memory back to the OS aggressively (glibc arena trim) — without
+# this, RSS only ever climbs and Render OOM-restarts us mid-job.
+export MALLOC_ARENA_MAX=2
+export PYTHONMALLOC=malloc
+exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-10000}" --limit-concurrency 32 --backlog 64

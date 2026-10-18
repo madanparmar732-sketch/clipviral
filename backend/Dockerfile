@@ -24,6 +24,8 @@ RUN git clone --depth 1 --branch 2.0.2 https://github.com/Brainicism/bgutil-ytdl
     && cd /opt/bgutil/server \
     && npm ci \
     && npx tsc
+# Keep the token-server RAM-capped — Render free tier dies at 512MB TOTAL
+ENV NODE_OPTIONS="--max-old-space-size=96"
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

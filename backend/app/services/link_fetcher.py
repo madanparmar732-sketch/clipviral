@@ -222,6 +222,8 @@ def fetch_video(url: str, workdir: str, on_progress=None) -> dict:
                 "max_duration": MAX_LINK_SECONDS,
                 "quiet": True,
                 "no_warnings": True,
+                "buffersize": 8192,
+                "http_chunk_size": 262144,
                 "progress_hooks": [hook],
                 "logger": pot_probe,
             }
@@ -303,6 +305,9 @@ def _common_opts(clients, cookiefile, extra):
         "quiet": True,
         "no_warnings": True,
         "socket_timeout": 30,
+        "buffersize": 8192,          # tiny RAM buffers (default 128KB x many)
+        "http_chunk_size": 262144,    # 256KB at a time — never holds the video
+        "concurrent_fragment_downloads": 1,
     }
     if clients:
         opts["extractor_args"] = {"youtube": {"player_client": clients}}
