@@ -285,3 +285,122 @@ def fetch_video(url: str, workdir: str, on_progress=None) -> dict:
         raise RuntimeError("That video is over the 500 MB limit.")
 
     return {"path": path, "title": title, "duration": duration, "size": size}
+
+
+# ============ STREAM-FIRST MODE (no full download for link jobs) ============
+# A 1-hour video over Render's free pipe took an hour to download. Instead:
+#   - fetch ONLY the audio stream (a few MB) for Whisper, and
+#   - resolve the direct 720p CDN URL; ffmpeg streams just the seconds it
+#     needs for each clip via HTTP range requests.
+# If any of this fails, the caller falls back to the classic full download.
+
+_AUDIO_EXTS = (".m4a", ".mp3", ".opus", ".webm", ".aac")
+
+
+def _common_opts(clients, cookiefile, extra):
+    opts = {
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
+        "socket_timeout": 30,
+    }
+    if clients:
+        opts["extractor_args"] = {"youtube": {"player_client": clients}}
+    if cookiefile:
+        opts["cookiefile"] = cookiefile
+    opts.update(extra)
+    return opts
+
+
+def stream_audio(url: str, workdir: str, on_progress=None) -> dict:
+    """Download ONLY the audio stream. Returns {path,title,duration,size}."""
+    import yt_dlp
+
+    os.makedirs(workdir, exist_ok=True)
+    is_yt = any(h in url for h in ("youtube.com", "youtu.be", "youtube-nocookie.com"))
+    strategies = YOUTUBE_STRATEGIES if is_yt else [("default", None)]
+    cookiefile = _cookiefile()
+
+    def hook(d):
+        if on_progress and d.get("status") == "downloading":
+            total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
+            done = d.get("downloaded_bytes") or 0
+            if total:
+                try:
+                    on_progress(min(99, int(done / total * 100)))
+                except Exception:
+                    pass
+
+    last_err: Exception | None = None
+    for name, clients in strategies:
+        opts = _common_opts(clients, cookiefile, {
+            "format": "ba/bestaudio/b",
+            "outtmpl": os.path.join(workdir, "audio.%(ext)s"),
+            "max_filesize": 80 * 1024 * 1024,   # audio only — 80MB ceiling
+            "progress_hooks": [hook],
+        })
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+            import glob as _g
+            cands = [f for f in _g.glob(os.path.join(workdir, "audio.*"))
+                     if f.lower().endswith(_AUDIO_EXTS + (".part",)) and not f.endswith(".part")]
+            if not cands:
+                raise RuntimeError("audio file missing after download")
+            path = max(cands, key=os.path.getsize)
+            size = os.path.getsize(path)
+            if size < 2048:
+                raise RuntimeError("audio file empty")
+            logger.info("audio-only fetch ok via %r (%.1f MB)", name, size / 1e6)
+            return {"path": path,
+                    "title": (info or {}).get("title") or "link video",
+                    "duration": float((info or {}).get("duration") or 0),
+                    "size": size}
+        except Exception as exc:
+            last_err = exc
+            logger.info("audio fetch failed via %r: %s", name, str(exc)[:120])
+    if last_err:
+        raise last_err
+    raise RuntimeError("no strategies")
+
+
+def resolve_direct_url(url: str) -> str:
+    """The best <=720p DIRECT media URL (ffmpeg reads its byte ranges)."""
+    import yt_dlp
+
+    is_yt = any(h in url for h in ("youtube.com", "youtu.be", "youtube-nocookie.com"))
+    strategies = YOUTUBE_STRATEGIES if is_yt else [("default", None)]
+    cookiefile = _cookiefile()
+    for name, clients in strategies:
+        opts = _common_opts(clients, cookiefile, {
+            "format": "b[height<=720][ext=mp4]/b[height<=720]/b[ext=mp4]/b",
+            "noprogress": True,
+        })
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                entries = info.get("entries") if info and info.get("_type") == "playlist" else [info]
+                entry = next((e for e in (entries or []) if e), None)
+                if not entry:
+                    continue
+                want = "720" if "youtube" in url else None
+                for fmt in entry.get("formats") or []:
+                    if not fmt.get("url"):
+                        continue
+                    if not str(fmt.get("ext", "")).lower() in ("mp4", "m4s", "webm", "mov"):
+                        continue
+                    h = int(fmt.get("height") or 0)
+                    if h and h > 720:
+                        continue
+                    if want and str(fmt.get("format_note", "")) and want not in str(fmt.get("format_id", "")) + str(fmt.get("resolution", "")) + str(fmt.get("height", "")):
+                        pass  # prefer loosely; take the first fit
+                    return fmt["url"]
+                # nothing <=720: last resort, the smallest video format
+                small = min((f for f in entry.get("formats") or [] if f.get("url") and (f.get("height") or 9999) <= 1080),
+                            key=lambda f: (f.get("height") or 0), default=None)
+                if small:
+                    return small["url"]
+        except Exception as exc:
+            logger.info("direct-url resolve failed via %r: %s", name, str(exc)[:120])
+            continue
+    return ""

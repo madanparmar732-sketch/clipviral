@@ -169,7 +169,11 @@ def _render_asset(asset: dict) -> None:
     os.makedirs(workdir, exist_ok=True)
     try:
         source = os.path.join(workdir, "source.mp4")
-        if not os.path.exists(source):
+        _dj = os.path.join(settings.media_dir, job_id, ".direct.txt")
+        _direct = open(_dj).read().strip() if os.path.exists(_dj) else ""
+        if _direct:
+            source = _direct  # stream-first job: night renders from CDN too
+        elif not os.path.exists(source):
             if not storage.download_file_from_storage(f"{job_id}/source.mp4", source):
                 raise RuntimeError("source missing")
 

@@ -271,6 +271,13 @@ def recaption_clip(clip_id: str, style: str) -> bool:
             pass
 
 
+def url_for_job(job_id: str) -> str:
+    rows = (get_admin().table("jobs").select("source_filename").eq("id", job_id)
+             .limit(1).execute().data or [{}])
+    fn = rows[0].get("source_filename") or ""
+    return fn.split("|||", 1)[1].strip() if "|||" in fn else ""
+
+
 def _user_prefs(user_id: str) -> dict:
     from app.services.captions import FREE_STYLES
 
@@ -369,6 +376,15 @@ def _run_guarded(job_id: str, source_path: str) -> None:
 def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
     """Runs in a background thread after the upload response is sent."""
     workdir = os.path.dirname(source_path)
+    _remote = os.path.join(workdir, ".direct.txt")
+    _remote_url = ""
+    if os.path.exists(_remote):
+        try:
+            _remote_url = open(_remote).read().strip()
+        except Exception:
+            _remote_url = ""
+        if os.path.basename(source_path).startswith("audio."):
+            source_path = _remote_url or source_path   # stream mode: render from CDN
     admin = get_admin()
 
     try:
@@ -411,8 +427,12 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
             logger.info("Job %s was cancelled - stopping.", job_id)
             return
         update_job(job_id, status="processing", stage="measuring_video", progress=5)
-        info = video_processor.probe_video(source_path)
-        duration = info["duration"]
+        _stored_dur = float(job_rows[0].get("duration_seconds") or 0) if job_rows else 0.0
+        if _stored_dur > 1:
+            duration, info = _stored_dur, {"duration": _stored_dur, "width": 0, "height": 0}
+        else:
+            info = video_processor.probe_video(source_path)
+            duration = info["duration"]
         update_job(job_id, duration_seconds=duration)
         logger.info("Job %s: video is %.1f seconds long", job_id, duration)
 
@@ -601,7 +621,11 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
             except Exception:
                 logger.exception("words json write failed (not fatal)")
             try:
-                video_processor.make_thumbnail(clip_path, thumb_path)
+                if source_path.startswith("http"):
+                    _aud = next((os.path.join(workdir, f) for f in os.listdir(workdir) if f.startswith("audio.")), source_path)
+                    video_processor.make_thumbnail(_aud, thumb_path)
+                else:
+                    video_processor.make_thumbnail(clip_path, thumb_path)
             except Exception:
                 logger.exception("Thumbnail failed (not fatal)")
                 thumb_path = ""
@@ -740,6 +764,37 @@ def _fetch_and_run_inner(job_id: str, url: str) -> None:
             logger.info("Job %s was cancelled - stopping.", job_id)
             return
         update_job(job_id, status="processing", stage="fetching_link", progress=2)
+
+        # ---- STREAM-FIRST: audio-only for Whisper + direct CDN URL for clips.
+        # No full-video download => no hour-long "fetching" on the free box.
+        audio = None
+        _aexc: Exception | None = None
+        for attempt in range(2):
+            try:
+                audio = link_fetcher.stream_audio(url, workdir, on_progress=on_progress)
+                break
+            except Exception as exc:
+                _aexc = exc
+                update_job(job_id, stage="fetching_link", progress=max(2, 8 * (attempt + 1)))
+                time.sleep(2)
+        if audio:
+            try:
+                direct = link_fetcher.resolve_direct_url(url)
+            except Exception:
+                direct = ""
+            with open(os.path.join(workdir, ".direct.txt"), "w") as fh:
+                fh.write(direct or "")          # empty = stream-mode, no 720p url
+            update_job(job_id, stage="link_fetched", progress=22,
+                       source_filename=f"{audio['title']}|||{url}",
+                       source_size_bytes=audio["size"],
+                       duration_seconds=audio.get("duration") or 0)
+            logger.info("Job %s: STREAM mode (audio %.1f MB, direct=%s)",
+                        job_id, audio["size"] / 1e6, bool(direct))
+            run_pipeline(job_id, audio["path"])
+            return
+        if _aexc:
+            logger.info("stream mode failed (%s) -> full download", str(_aexc)[:120])
+        update_job(job_id, stage="downloading_full", progress=3)
         # X/YouTube CDNs flake sometimes — ALWAYS retry before giving up.
         result = None
         last_exc: Exception | None = None

@@ -46,6 +46,28 @@ def _process(job_id: str) -> None:
     local = os.path.join(workdir, "source.mp4")
 
     if url.startswith("http"):
+        # stream-first on the phone too: audio + CDN url, no full download
+        try:
+            from app.services import link_fetcher
+            from app.config import settings as _st
+
+            os.makedirs(workdir, exist_ok=True)
+            side = os.path.join(workdir, ".direct.txt")
+            if not os.path.exists(side):
+                audio = link_fetcher.stream_audio(url, workdir)
+                try:
+                    direct = link_fetcher.resolve_direct_url(url)
+                except Exception:
+                    direct = ""
+                open(side, "w").write(direct or "")
+                log.info("job %s: phone STREAM mode (audio %.1f MB, direct=%s)",
+                         job_id[:8], audio["size"] / 1e6, bool(direct))
+                pipeline.update_job(job_id, stage="link_fetched", progress=22,
+                                    duration_seconds=audio.get("duration") or 0)
+                pipeline.run_pipeline(job_id, audio["path"])
+                return
+        except Exception:
+            log.exception("stream mode failed on phone - falling back to full fetch")
         log.info("job %s: fetching link %s", job_id[:8], url[:80])
         pipeline.fetch_and_run(job_id, url)
         return

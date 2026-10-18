@@ -61,6 +61,7 @@ export default function JobCard({ job, token, account }: { job: Job; token: stri
   const [cancelling, setCancelling] = useState(false);
   const [bumped, setBumped] = useState<Record<string, boolean>>({});
 
+
   async function bump(clipId: string) {
     setBumped((b) => ({ ...b, [clipId]: true }));
     try {
@@ -195,7 +196,7 @@ export default function JobCard({ job, token, account }: { job: Job; token: stri
                         disabled={bumped[clip.id]}
                         onClick={() => bump(clip.id)}
                       >
-                        {bumped[clip.id] ? "Queued! Refresh in a few minutes." : "Can't wait? Render now"}
+                        {bumped[clip.id] ? "Queued! Ready in a few minutes." : "Can't wait? Render now"}
                       </Button>
                     </div>
                   )}

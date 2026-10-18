@@ -104,7 +104,11 @@ def transcribe_video(video_path: str, workdir: str) -> dict:
     """
     logger.info("Extracting audio for Whisper...")
     audio_path = os.path.join(workdir, "audio.mp3")
-    extract_audio(video_path, audio_path)
+    if os.path.basename(video_path).startswith("audio.") and video_path != audio_path:
+        import shutil
+        shutil.move(video_path, audio_path)   # already audio (stream-first mode) — no re-encode
+    else:
+        extract_audio(video_path, audio_path)
 
     chunks = _split_audio(audio_path, workdir)
     logger.info("Transcribing %d audio chunk(s)...", len(chunks))

@@ -67,9 +67,12 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
     return () => clearInterval(warm);
   }, []);
 
-  // 2) While any job is still cooking, refresh every 5 seconds.
+  // 2) While any job is still cooking — or any clip is still waiting for its
+  //    night render — refresh silently every 5 seconds. No button needed.
   useEffect(() => {
-    const hasActive = jobs.some((j) => j.status === "queued" || j.status === "processing");
+    const hasActive =
+      jobs.some((j) => j.status === "queued" || j.status === "processing") ||
+      jobs.some((j) => (j.clips ?? []).some((c) => !c.video_url));  // night renders landing
     if (hasActive && token) {
       timerRef.current = setInterval(() => refresh(), 5000);
     }
@@ -166,9 +169,6 @@ export default function DashboardClient({ userEmail }: { userEmail: string }) {
       <section>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold">Your clips {jobs.length > 0 && <span className="ml-1 text-sm font-normal text-muted-foreground">({jobs.length})</span>}</h2>
-          <Button variant="outline" size="sm" onClick={() => refresh()} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
-          </Button>
         </div>
 
         {error && (

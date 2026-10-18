@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     clip_min_seconds: int = 15
     clip_max_seconds: int = 40  # shorter = much faster renders + better for shorts
     # Keep only the newest N videos per account; older ones are auto-deleted.
-    max_videos_per_account: int = 4
+    max_videos_per_account: int = 1  # keep newest ONLY — storage never fills
     # Free plan: how many videos per calendar month (Pro = unlimited)
     free_videos_per_month: int = 3
     # Comma-separated Pro activation codes (owner hands these out after payment)
