@@ -28,3 +28,5 @@ services:
       # is confirmed online — then Render becomes API-only and the phone renders.
       - key: CLIPVIRAL_PHONE_WORKER
         value: "0"
+      - key: CLIPVIRAL_NIGHT_BATCH
+        value: "1"

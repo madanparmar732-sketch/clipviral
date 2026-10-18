@@ -52,6 +52,52 @@ def encode_args() -> list[str]:
     return ["-threads", "1", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23"]
 
 
+def copy_cut_feasible(source_path: str, start: float, end: float,
+                      tolerance: float = 2.0) -> float | None:
+    """The 20x-cheap cut path: stream-copy video (NO re-encode) + fresh audio.
+
+    Works only when the cut lands within `tolerance` seconds after a keyframe —
+    anything else starts gray/glitchy. Returns the keyframe time to use, or
+    None when this clip must go through the full encoder."""
+    span = max(0.5, end - start)
+    if span < 4 or start <= 0.05:
+        return None  # tiny clips / from-zero cuts are already cheap-accurate? no: keep simple
+    try:
+        probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0",
+             "-skip_frame", "nokey",
+             "-show_entries", "frame=pts_time",
+             "-read_intervals", f"{max(0.0, start - 12)}%{end + 1}",
+             "-of", "csv=p=0", source_path],
+            capture_output=True, text=True, timeout=60)
+    except Exception:
+        return None
+    keys: list[float] = []
+    for line in (probe.stdout or "").splitlines():
+        try:
+            keys.append(float(line.strip()))
+        except ValueError:
+            continue
+    earlier = [k for k in keys if k <= start + 0.25]
+    if not earlier:
+        return None
+    kf = max(earlier)
+    return kf if start - kf <= tolerance else None
+
+
+def copy_cut_video(source_path: str, start: float, end: float, out_path: str) -> str:
+    """Near-instant clip: input seeking + video stream copy + re-encoded audio."""
+    dur = max(1.0, end - start)
+    subprocess.run(
+        ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+         "-ss", f"{start:.3f}", "-i", source_path, "-t", f"{dur:.3f}",
+         "-c:v", "copy", "-an",
+         "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
+         "-movflags", "+faststart", out_path],
+        check=True, capture_output=True, text=True, timeout=300)
+    return out_path
+
+
 def _run(command: list[str]) -> subprocess.CompletedProcess:
     logger.info("Running: %s", " ".join(command))
     result = subprocess.run(command, capture_output=True, text=True, timeout=900)

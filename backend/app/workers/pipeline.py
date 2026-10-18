@@ -33,6 +33,7 @@ _WORKER_GUARD = threading.Lock()
 _INFLIGHT: dict[str, float] = {}          # job_id -> last proof-of-life time
 _INFLIGHT_LOCK = threading.Lock()
 _RECOVER_LOCK = threading.Lock()
+_NIGHT_STARTED = threading.Event()
 
 
 _PROGRESS_TS: dict[str, float] = {}   # job_id -> last time progress/stage actually moved
@@ -140,6 +141,11 @@ def ensure_worker_started() -> None:
         if not _SWEEPER_STARTED.is_set():
             threading.Thread(target=_sweeper_loop, daemon=True).start()
             _SWEEPER_STARTED.set()
+        if settings.night_batch and not _NIGHT_STARTED.is_set():
+            from app.services import assets as _assets
+
+            threading.Thread(target=_assets.night_loop, daemon=True).start()
+            _NIGHT_STARTED.set()
 
 
 def _recover_stuck() -> None:
@@ -383,6 +389,61 @@ def _run_pipeline_unserialized(job_id: str, source_path: str) -> None:
                     return  # don't hammer the database
                 _last[0] = now
                 update_job(job_id, progress=_base + int(14 * max(0.0, min(1.0, frac))))
+
+            # ---------- NIGHT/LAZY mode: card instantly, encode tonight ----------
+            if settings.night_batch and index >= settings.night_copy_first:
+                try:
+                    _lz_sil = video_processor.silences_from_words(
+                        transcript.get("words") or [], clip["start"], clip["end"])
+                    if opts.get("remove_fillers"):
+                        from app.services import parity as _pz
+
+                        _lz_rng = [
+                            {"start": w["start"], "end": w["end"], "word": w.get("word", "")}
+                            for w in transcript.get("words") or []
+                            if float(w.get("start", 0)) >= clip["start"] - 0.01
+                            and float(w.get("end", 0)) <= clip["end"] + 0.01
+                        ]
+                        _lz_sil = list(_lz_sil) + _pz.find_filler_ranges(_lz_rng)
+                    _lz_kept = video_processor.build_kept_segments(
+                        clip["start"], clip["end"], _lz_sil)
+                    _lz_words = [
+                        {"start": round(w["start"], 3), "end": round(w["end"], 3),
+                         "word": w.get("word", "")}
+                        for w in captions.remap_words(
+                            transcript["words"], _lz_kept)
+                    ]
+                    _lz_cid = str(uuid.uuid4())
+                    from app.services import assets as _assets
+
+                    if _assets.queue_night_render(
+                            job_id=job_id, clip_id=_lz_cid, user_id=user_id,
+                            clip_index=index + 1,
+                            payload={
+                                "kept": [[round(a, 3), round(b, 3)] for a, b in _lz_kept],
+                                "words": _lz_words,
+                                "style": cap_style,
+                                "reframe": str(prefs.get("reframe") or "face"),
+                                "enhance": False, "watermark": not is_pro,
+                                "sfx": bool(prefs.get("sfx")) and is_pro,
+                                "aspect": str(opts.get("aspect") or "9:16"),
+                                "title": clip["title"], "hook": clip["hook"],
+                                "score": clip["score"], "hashtags": clip["hashtags"],
+                                "start": clip["start"], "end": clip["end"],
+                            }):
+                        admin.table("clips").insert({
+                            "id": _lz_cid, "job_id": job_id, "user_id": user_id,
+                            "title": clip["title"], "hook": clip["hook"],
+                            "score": clip["score"],
+                            "start_seconds": clip["start"],
+                            "end_seconds": clip["end"],
+                            "video_url": "", "thumbnail_url": "",
+                            "storage_path": f"{job_id}/clip_{index + 1}.mp4",
+                            "hashtags": clip["hashtags"],
+                        }).execute()
+                        continue
+                except Exception:
+                    logger.exception("lazy card failed - full-rendering clip %s now", index + 1)
 
             clip_id = str(uuid.uuid4())
             ass_path = os.path.join(workdir, f"clip_{index + 1}.ass")

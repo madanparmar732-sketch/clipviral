@@ -204,6 +204,14 @@ export type Account = {
   all_styles: string[];
 };
 
+export async function renderClipNow(token: string, clipId: string): Promise<void> {
+  const res = await fetchWithRetry(`${API_URL}/api/clips/${clipId}/render-now`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+  if (!res.ok && res.status !== 409) throw new Error(`Could not queue render (HTTP ${res.status})`);
+}
+
 export async function getAccount(token: string): Promise<Account> {
   const res = await fetchWithRetry(`${API_URL}/api/account`, { headers: authHeaders(token), cache: "no-store" });
   if (!res.ok) throw new Error(`Could not load account (HTTP ${res.status})`);

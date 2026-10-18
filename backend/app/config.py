@@ -49,6 +49,14 @@ class Settings(BaseSettings):
     # jobs instead (app/services/lease.py). Render dashboard env var CLIPVIRAL_PHONE_WORKER=1.
     phone_worker: bool = False
 
+    # ---- NIGHT BATCH / LAZY RENDERING (the "100 videos on a tiny CPU" trick) ----
+    # Analysis + clip CARDS land instantly; the heavy encoder for the clips the
+    # user isn't watching right now runs in the quiet night window instead.
+    night_batch: bool = False            # enable via CLIPVIRAL_NIGHT_BATCH=1
+    night_start_hour: float = 1.5        # IST hour the night window opens
+    night_end_hour: float = 6.5          # ...and closes
+    night_copy_first: int = 3            # render this many clips eagerly (top scores)
+
     # Extra "recap reel" made with MoviePy (needs more RAM, off by default)
     recap_enabled: bool = False
 

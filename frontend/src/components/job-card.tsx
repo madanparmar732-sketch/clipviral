@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { downloadClip, type Clip, type Job , cancelJob} from "@/lib/api";
+import { downloadClip, renderClipNow, type Clip, type Job , cancelJob} from "@/lib/api";
 import ClipActions from "@/components/clip-actions";
 import Link from "next/link";
 import { Wand2 } from "lucide-react";
@@ -59,6 +59,16 @@ function stageLabel(stage?: string | null) {
 export default function JobCard({ job, token, account }: { job: Job; token: string; account?: Account | null }) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [bumped, setBumped] = useState<Record<string, boolean>>({});
+
+  async function bump(clipId: string) {
+    setBumped((b) => ({ ...b, [clipId]: true }));
+    try {
+      await renderClipNow(token, clipId);
+    } catch {
+      /* already queued / offline — the hint stays */
+    }
+  }
   const [error, setError] = useState<string | null>(null);
 
   async function download(clip: Clip) {
@@ -173,8 +183,20 @@ export default function JobCard({ job, token, account }: { job: Job; token: stri
                       className="h-full w-full object-contain"
                     />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                      No preview
+                    <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+                      <span className="text-3xl">🌙</span>
+                      <p className="text-sm text-muted-foreground">
+                        Title &amp; timing are locked in — the full captioned render
+                        finishes tonight at 2 AM.
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={bumped[clip.id]}
+                        onClick={() => bump(clip.id)}
+                      >
+                        {bumped[clip.id] ? "Queued! Refresh in a few minutes." : "Can't wait? Render now"}
+                      </Button>
                     </div>
                   )}
                   {clip.score ? (
@@ -206,7 +228,7 @@ export default function JobCard({ job, token, account }: { job: Job; token: stri
                     size="sm"
                     className="w-full"
                     onClick={() => download(clip)}
-                    disabled={downloadingId === clip.id}
+                    disabled={downloadingId === clip.id || !clip.video_url}
                   >
                     {downloadingId === clip.id ? (
                       <>
@@ -218,17 +240,21 @@ export default function JobCard({ job, token, account }: { job: Job; token: stri
                       </>
                     )}
                   </Button>
-                  <Link href={`/editor/${clip.id}`}>
-                    <Button size="sm" variant="outline" className="w-full">
-                      <Wand2 className="h-4 w-4" /> Open Editor
-                    </Button>
-                  </Link>
-                  <Link href={`/studio/${clip.id}`}>
-                    <Button size="sm" variant="outline" className="w-full border-fuchsia-500/40">
-                      <Sparkles className="h-4 w-4" /> Open Studio
-                    </Button>
-                  </Link>
-                  <ClipActions clip={clip} token={token} />
+                  {clip.video_url ? (
+                    <>
+                      <Link href={`/editor/${clip.id}`}>
+                        <Button size="sm" variant="outline" className="w-full">
+                          <Wand2 className="h-4 w-4" /> Open Editor
+                        </Button>
+                      </Link>
+                      <Link href={`/studio/${clip.id}`}>
+                        <Button size="sm" variant="outline" className="w-full border-fuchsia-500/40">
+                          <Sparkles className="h-4 w-4" /> Open Studio
+                        </Button>
+                      </Link>
+                      <ClipActions clip={clip} token={token} />
+                    </>
+                  ) : null}
                 </div>
               </div>
             ))}

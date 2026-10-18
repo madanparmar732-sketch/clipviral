@@ -204,6 +204,24 @@ def update_clip_meta(clip_id: str, payload: ClipMeta, user=Depends(get_current_u
     return {"ok": True}
 
 
+@router.post("/api/clips/{clip_id}/render-now")
+def render_now(clip_id: str, user=Depends(get_current_user)):
+    """'Can't wait for tonight?' — bump this clip's encode to priority."""
+    rows = (
+        get_admin().table("clips").select("id, video_url")
+        .eq("id", clip_id).eq("user_id", user.id).limit(1).execute().data or []
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Clip not found.")
+    if rows[0].get("video_url"):
+        return {"ok": True, "already": True}
+    from app.services import assets as _assets
+
+    if not _assets.requeue_now(clip_id):
+        raise HTTPException(status_code=409, detail="Nothing pending for this clip.")
+    return {"ok": True}
+
+
 # ---------------- Browser Studio video proxy (CORS-safe fallback) ----------------
 _ALLOWED_PROXY_HOSTS = ("dkavqwoolwomouajmcsy.supabase.co",)
 
